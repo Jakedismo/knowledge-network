@@ -93,6 +93,23 @@
     @apply bg-background text-foreground;
   }
 
+  /* Editor preview and code blocks */
+  pre {
+    @apply rounded-md bg-muted p-3 overflow-auto text-sm;
+  }
+  code {
+    @apply rounded bg-muted px-1 py-0.5 text-[0.875em];
+  }
+  pre code {
+    @apply bg-transparent p-0;
+  }
+  .embed.youtube iframe,
+  .embed.vimeo iframe {
+    width: 100%;
+    aspect-ratio: 16/9;
+    border: 0;
+  }
+
   /* Theme transition for smooth theme switching */
   .theme-transition,
   .theme-transition *,

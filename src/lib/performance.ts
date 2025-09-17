@@ -203,3 +203,52 @@ export function useLazyComponent<T>(
 
 // Re-export useState and useEffect for consistency
 import { useState, useEffect } from 'react'
+
+/**
+ * Measure a synchronous operation. Returns duration in ms and result.
+ */
+export function measure<T>(name: string, fn: () => T): { duration: number; result: T } {
+  const start = performance.now()
+  try {
+    const result = fn()
+    const duration = performance.now() - start
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.log(`[perf] ${name}: ${duration.toFixed(2)}ms`)
+    }
+    return { duration, result }
+  } catch (e) {
+    const duration = performance.now() - start
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.log(`[perf] ${name} failed after ${duration.toFixed(2)}ms`)
+    }
+    throw e
+  }
+}
+
+/**
+ * Measure an async operation. Returns duration and result.
+ */
+export async function measureAsync<T>(
+  name: string,
+  fn: () => Promise<T>
+): Promise<{ duration: number; result: T }> {
+  const start = performance.now()
+  try {
+    const result = await fn()
+    const duration = performance.now() - start
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.log(`[perf] ${name}: ${duration.toFixed(2)}ms`)
+    }
+    return { duration, result }
+  } catch (e) {
+    const duration = performance.now() - start
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.log(`[perf] ${name} failed after ${duration.toFixed(2)}ms`)
+    }
+    throw e
+  }
+}

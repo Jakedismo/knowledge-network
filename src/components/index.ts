@@ -5,3 +5,9 @@ export * from './ui'
 export { Header } from './layout/header'
 export { Sidebar } from './layout/sidebar'
 export { MainLayout } from './layout/main-layout'
+// Editor
+export * from './editor'
+// Editor exports
+export * from './editor/api'
+export { EditorProvider } from './editor/EditorProvider'
+export { Editor } from './editor/Editor'

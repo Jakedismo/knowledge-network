@@ -1,0 +1,51 @@
+/* Basic two-pane layout */
+.editor {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  min-height: 420px;
+}
+.bottom {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+.input {
+  width: 100%;
+  height: 100%;
+  resize: vertical;
+  padding: 0.75rem;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 0.5rem;
+  background: var(--bg, #0b0b0b0a);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  line-height: 1.5;
+}
+.preview {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+.preview pre {
+  background: #0b1220;
+  color: #e8eefc;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  overflow: auto;
+}
+.preview code {
+  background: #f1f5f9;
+  padding: 0.1rem 0.25rem;
+  border-radius: 0.25rem;
+}
+.preview img { max-width: 100%; height: auto; }
+.youtube iframe, .vimeo iframe {
+  width: 100%;
+  min-height: 260px;
+  border: 0;
+  border-radius: 0.5rem;
+}
+.katexMath { font-family: Georgia, "Times New Roman", serif; background: #fffbe6; padding: 0.1rem 0.25rem; }
+

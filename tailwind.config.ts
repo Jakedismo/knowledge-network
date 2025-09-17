@@ -20,6 +20,10 @@ const config: Config = {
 
     // Override default Tailwind values with design tokens
     colors: {
+      transparent: 'transparent',
+      current: 'currentColor',
+      black: '#000000',
+      white: '#ffffff',
       // Keep CSS variable colors for theme switching
       border: 'hsl(var(--border))',
       input: 'hsl(var(--input))',
@@ -75,6 +79,7 @@ const config: Config = {
     borderRadius: {
       ...designTokens.borderRadius,
       // Keep CSS variable radius for dynamic theming
+      DEFAULT: 'var(--radius)',
       lg: 'var(--radius)',
       md: 'calc(var(--radius) - 2px)',
       sm: 'calc(var(--radius) - 4px)',

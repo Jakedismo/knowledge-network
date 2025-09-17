@@ -10,12 +10,14 @@
     "lint:fix": "next lint --fix && oxlint --fix",
     "type-check": "tsc --noEmit",
     "test": "vitest",
+    "test:perf": "PERF_STRICT=1 vitest -t performance",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "preview": "next build && next start",
     "clean": "rm -rf .next node_modules",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "build:wasm": "bash packages/kn-editor-core/build.sh"
   },
   "dependencies": {
     "@apollo/client": "^3.8.10",
