@@ -1,0 +1,471 @@
+// This is your Prisma schema file for Knowledge Network React Application
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Core Enums
+enum KnowledgeStatus {
+  DRAFT
+  REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum ActivityAction {
+  CREATE
+  UPDATE
+  DELETE
+  VIEW
+  SHARE
+  COMMENT
+  COLLABORATE
+}
+
+enum LinkType {
+  REFERENCES
+  MENTIONS
+  RELATED
+  PARENT_CHILD
+  DUPLICATE
+}
+
+enum CommentStatus {
+  OPEN
+  RESOLVED
+  ARCHIVED
+}
+
+// Core Tables
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  displayName  String     @map("display_name")
+  passwordHash String     @map("password_hash")
+  status       UserStatus @default(ACTIVE)
+  preferences  Json       @default("{}")
+  avatarUrl    String?    @map("avatar_url")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  authoredKnowledge   Knowledge[]              @relation("AuthoredKnowledge")
+  workspaceRoles      UserWorkspaceRole[]
+  comments            Comment[]
+  activityLogs        ActivityLog[]
+  knowledgeVersions   KnowledgeVersion[]
+  collaborationSessions CollaborationSession[]
+
+  @@map("users")
+}
+
+model Workspace {
+  id          String @id @default(cuid())
+  name        String
+  description String?
+  settings    Json   @default("{}")
+  isActive    Boolean @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  knowledge       Knowledge[]
+  collections     Collection[]
+  tags            Tag[]
+  roles           Role[]
+  userRoles       UserWorkspaceRole[]
+  activityLogs    ActivityLog[]
+
+  @@map("workspaces")
+}
+
+model Knowledge {
+  id           String          @id @default(cuid())
+  title        String
+  content      String
+  contentDelta Json?           @map("content_delta") // Rich text editor state
+  excerpt      String?         // Auto-generated summary
+  status       KnowledgeStatus @default(DRAFT)
+  version      Int             @default(1)
+  isTemplate   Boolean         @default(false) @map("is_template")
+  templateId   String?         @map("template_id")
+  metadata     Json            @default("{}")
+  viewCount    Int             @default(0) @map("view_count")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  // Foreign Keys
+  workspaceId  String @map("workspace_id")
+  authorId     String @map("author_id")
+  collectionId String? @map("collection_id")
+
+  // Relations
+  workspace    Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  author       User               @relation("AuthoredKnowledge", fields: [authorId], references: [id])
+  collection   Collection?        @relation(fields: [collectionId], references: [id])
+  tags         KnowledgeTag[]
+  comments     Comment[]
+  versions     KnowledgeVersion[]
+  sourceLinks  KnowledgeLink[]    @relation("SourceLinks")
+  targetLinks  KnowledgeLink[]    @relation("TargetLinks")
+  collaborationSessions CollaborationSession[]
+
+  // Indexes
+  @@index([workspaceId])
+  @@index([authorId])
+  @@index([collectionId])
+  @@index([status])
+  @@index([updatedAt(sort: Desc)])
+  @@index([title])
+  @@fulltext([title, content])
+  @@map("knowledge")
+}
+
+model Collection {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  color       String? // Hex color
+  icon        String? // Icon identifier
+  metadata    Json    @default("{}")
+  sortOrder   Int     @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Foreign Keys
+  workspaceId String  @map("workspace_id")
+  parentId    String? @map("parent_id")
+
+  // Relations
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parent    Collection?  @relation("CollectionHierarchy", fields: [parentId], references: [id])
+  children  Collection[] @relation("CollectionHierarchy")
+  knowledge Knowledge[]
+
+  @@index([workspaceId])
+  @@index([parentId])
+  @@map("collections")
+}
+
+model Tag {
+  id         String @id @default(cuid())
+  name       String
+  color      String? // Hex color
+  usageCount Int    @default(0) @map("usage_count")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Foreign Keys
+  workspaceId String @map("workspace_id")
+
+  // Relations
+  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  knowledge KnowledgeTag[]
+
+  @@unique([name, workspaceId])
+  @@index([workspaceId])
+  @@map("tags")
+}
+
+model KnowledgeTag {
+  knowledgeId String @map("knowledge_id")
+  tagId       String @map("tag_id")
+
+  // Relations
+  knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  tag       Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([knowledgeId, tagId])
+  @@map("knowledge_tags")
+}
+
+model KnowledgeLink {
+  sourceId  String   @map("source_id")
+  targetId  String   @map("target_id")
+  linkType  LinkType @default(REFERENCES) @map("link_type")
+  strength  Float    @default(1.0) // Link strength for AI recommendations
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  source Knowledge @relation("SourceLinks", fields: [sourceId], references: [id], onDelete: Cascade)
+  target Knowledge @relation("TargetLinks", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@id([sourceId, targetId])
+  @@index([targetId])
+  @@map("knowledge_links")
+}
+
+model KnowledgeVersion {
+  id             String   @id @default(cuid())
+  versionNumber  Int      @map("version_number")
+  content        String
+  contentDelta   Json?    @map("content_delta")
+  changeSummary  String?  @map("change_summary")
+  diffData       Json?    @map("diff_data") // Computed diff from previous version
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Foreign Keys
+  knowledgeId String @map("knowledge_id")
+  authorId    String @map("author_id")
+
+  // Relations
+  knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id])
+
+  @@unique([knowledgeId, versionNumber])
+  @@index([knowledgeId])
+  @@map("knowledge_versions")
+}
+
+model Comment {
+  id           String        @id @default(cuid())
+  content      String
+  positionData Json?         @map("position_data") // Editor position info
+  status       CommentStatus @default(OPEN)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  // Foreign Keys
+  knowledgeId String  @map("knowledge_id")
+  authorId    String  @map("author_id")
+  parentId    String? @map("parent_id")
+
+  // Relations
+  knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id])
+  parent    Comment?  @relation("CommentThread", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentThread")
+
+  @@index([knowledgeId])
+  @@index([authorId])
+  @@map("comments")
+}
+
+// Permission System
+model Role {
+  id           String  @id @default(cuid())
+  name         String
+  description  String?
+  permissions  Json    @default("[]") // Array of permission objects
+  isSystemRole Boolean @default(false) @map("is_system_role")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Foreign Keys
+  workspaceId String @map("workspace_id")
+
+  // Relations
+  workspace Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userRoles UserWorkspaceRole[]
+
+  @@unique([name, workspaceId])
+  @@index([workspaceId])
+  @@map("roles")
+}
+
+model UserWorkspaceRole {
+  grantedAt DateTime @default(now()) @map("granted_at")
+
+  // Foreign Keys
+  userId      String @map("user_id")
+  workspaceId String @map("workspace_id")
+  roleId      String @map("role_id")
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  role      Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, workspaceId, roleId])
+  @@map("user_workspace_roles")
+}
+
+// Collaboration Features
+model CollaborationSession {
+  id        String   @id @default(cuid())
+  socketId  String?  @map("socket_id")
+  isActive  Boolean  @default(true) @map("is_active")
+  lastSeen  DateTime @default(now()) @map("last_seen")
+  cursorPos Json?    @map("cursor_position") // Editor cursor position
+  selection Json?    @map("selection_range") // Text selection range
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Foreign Keys
+  userId      String @map("user_id")
+  knowledgeId String @map("knowledge_id")
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, knowledgeId])
+  @@index([knowledgeId])
+  @@index([isActive])
+  @@map("collaboration_sessions")
+}
+
+// Analytics and Activity Tracking
+model ActivityLog {
+  id           String         @id @default(cuid())
+  action       ActivityAction
+  resourceType String         @map("resource_type")
+  resourceId   String?        @map("resource_id")
+  metadata     Json           @default("{}")
+  ipAddress    String?        @map("ip_address")
+  userAgent    String?        @map("user_agent")
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  // Foreign Keys
+  userId      String? @map("user_id")
+  workspaceId String? @map("workspace_id")
+
+  // Relations
+  user      User?      @relation(fields: [userId], references: [id])
+  workspace Workspace? @relation(fields: [workspaceId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([resourceType, resourceId])
+  @@index([action])
+  @@map("activity_logs")
+}
+
+model SearchQuery {
+  id           String   @id @default(cuid())
+  query        String
+  filters      Json     @default("{}")
+  resultCount  Int      @map("result_count")
+  responseTime Int      @map("response_time") // In milliseconds
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Foreign Keys
+  userId      String? @map("user_id")
+  workspaceId String? @map("workspace_id")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([query])
+  @@map("search_queries")
+}
+
+// AI Integration Tables
+model AIProcessingJob {
+  id          String   @id @default(cuid())
+  jobType     String   @map("job_type") // 'embedding', 'summarization', 'tagging', etc.
+  status      String   @default("pending") // 'pending', 'processing', 'completed', 'failed'
+  input       Json
+  output      Json?
+  errorMessage String? @map("error_message")
+  processingTime Int?  @map("processing_time") // In milliseconds
+  retryCount  Int     @default(0) @map("retry_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+
+  // Foreign Keys
+  knowledgeId String? @map("knowledge_id")
+
+  @@index([jobType, status])
+  @@index([knowledgeId])
+  @@index([createdAt(sort: Desc)])
+  @@map("ai_processing_jobs")
+}
+
+model KnowledgeEmbedding {
+  id          String   @id @default(cuid())
+  embedding   Float[]  // Vector embedding
+  modelName   String   @map("model_name")
+  modelVersion String  @map("model_version")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Foreign Keys
+  knowledgeId String @unique @map("knowledge_id")
+
+  @@index([modelName, modelVersion])
+  @@map("knowledge_embeddings")
+}
+
+// Notification System
+model NotificationTemplate {
+  id       String @id @default(cuid())
+  name     String @unique
+  subject  String
+  htmlBody String @map("html_body")
+  textBody String @map("text_body")
+  isActive Boolean @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("notification_templates")
+}
+
+model UserNotification {
+  id         String   @id @default(cuid())
+  title      String
+  message    String
+  type       String   // 'info', 'warning', 'success', 'error'
+  isRead     Boolean  @default(false) @map("is_read")
+  actionUrl  String?  @map("action_url")
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+  readAt     DateTime? @map("read_at")
+
+  // Foreign Keys
+  userId String @map("user_id")
+
+  @@index([userId, isRead])
+  @@index([createdAt(sort: Desc)])
+  @@map("user_notifications")
+}
+
+// Integration Tables
+model ExternalIntegration {
+  id           String   @id @default(cuid())
+  name         String
+  type         String   // 'slack', 'teams', 'jira', 'github', etc.
+  config       Json     @default("{}")
+  credentials  Json     @default("{}") // Encrypted credentials
+  isActive     Boolean  @default(true) @map("is_active")
+  lastSyncAt   DateTime? @map("last_sync_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Foreign Keys
+  workspaceId String @map("workspace_id")
+
+  @@index([workspaceId])
+  @@index([type])
+  @@map("external_integrations")
+}
+
+model ImportJob {
+  id           String   @id @default(cuid())
+  source       String   // 'csv', 'json', 'google_drive', etc.
+  status       String   @default("pending")
+  totalItems   Int      @default(0) @map("total_items")
+  processedItems Int    @default(0) @map("processed_items")
+  failedItems  Int      @default(0) @map("failed_items")
+  errorLog     Json?    @map("error_log")
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now()) @map("created_at")
+  completedAt  DateTime? @map("completed_at")
+
+  // Foreign Keys
+  workspaceId String @map("workspace_id")
+  userId      String @map("user_id")
+
+  @@index([workspaceId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("import_jobs")
+}
