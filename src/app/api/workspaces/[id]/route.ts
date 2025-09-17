@@ -21,7 +21,7 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
   // Hard-delete workspace requires admin
   // Note: DELETE has no body; use headers for auth
   // For now allow if guard passes (workspace admin)
-  // eslint-disable-next-line @typescript-eslint/require-await
+  // eslint-disable-next-line require-await
   const req = {} as Request
   void req
   await workspaceService.remove(params.id)

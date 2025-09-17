@@ -71,11 +71,10 @@ export function WorkspaceSwitcher({ workspaces, currentId, onSwitch, className, 
             </DropdownMenuItem>
           ))}
           {filtered.length === 0 && (
-            <div className="p-3 text-sm text-muted-foreground">No workspaces match "{query}"</div>
+            <div className="p-3 text-sm text-muted-foreground">No workspaces match &quot;{query}&quot;</div>
           )}
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
-

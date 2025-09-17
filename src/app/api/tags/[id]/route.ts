@@ -12,7 +12,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 }
 
 export async function DELETE(_: Request, { params }: { params: { id: string } }) {
-  // eslint-disable-next-line @typescript-eslint/require-await
+  // eslint-disable-next-line require-await
   const req = {} as Request
   void req
   await tagService.remove(params.id)

@@ -1,4 +1,4 @@
-const TOKEN = /\{\{\s*([a-zA-Z0-9_.\-]{1,64})\s*\}\}/g
+const TOKEN = /\{\{\s*([a-zA-Z0-9_.-]{1,64})\s*\}\}/g
 
 export function extractPlaceholders(text: string): string[] {
   const keys = new Set<string>()

@@ -10,7 +10,7 @@ export async function resolveOrgService(): Promise<OrgService> {
   if (usePrisma) {
     try {
       // Avoid static import to keep type-checking happy if @prisma/client is missing
-      // eslint-disable-next-line @typescript-eslint/no-implied-eval
+      // eslint-disable-next-line no-implied-eval
       const req: any = (0, eval)('require')
       const { PrismaClient } = req('@prisma/client')
       const prisma = new PrismaClient()
@@ -23,4 +23,3 @@ export async function resolveOrgService(): Promise<OrgService> {
   cached = inMemory
   return cached
 }
-

@@ -4,7 +4,7 @@ import { requireAuth } from '@/server/modules/organization/api-guard'
 
 export async function GET() {
   // Require user identity; list-user filter can be added later
-  // eslint-disable-next-line @typescript-eslint/require-await
+  // eslint-disable-next-line require-await
   const dummyReq = { headers: new Headers() } as unknown as Request
   void dummyReq
   const list = await workspaceService.list()

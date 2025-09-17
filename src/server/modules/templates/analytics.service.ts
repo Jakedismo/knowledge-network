@@ -17,7 +17,7 @@ export class TemplateAnalyticsService {
         resourceId: event.templateId,
         workspaceId: event.workspaceId ?? null,
         userId: event.userId ?? null,
-        metadata: { category: 'template', ...(event.metadata ?? {}) } as any,
+        metadata: { category: 'template', ...event.metadata } as any,
       },
     })
   }
