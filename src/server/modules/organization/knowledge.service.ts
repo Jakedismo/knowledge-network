@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import { metadataService } from './metadata.service'
 import { emitUpsert } from '@/server/modules/search/emitter'
+import { activityService } from '@/server/modules/activity/activity.service'
 
 export interface CreateKnowledgeInput {
   workspaceId: string
@@ -35,6 +36,15 @@ export class KnowledgeService {
     })
     await metadataService.reindexKnowledge(created.id, (created.metadata ?? {}) as Record<string, any>)
     await emitUpsert(input.workspaceId, created.id)
+    // Fire-and-forget activity log
+    await activityService.log({
+      action: 'CREATE',
+      resourceType: 'KNOWLEDGE',
+      resourceId: created.id,
+      userId: input.authorId,
+      workspaceId: input.workspaceId,
+      metadata: { title: input.title, collectionId: input.collectionId ?? null },
+    })
     return created
   }
 
@@ -53,6 +63,20 @@ export class KnowledgeService {
     await metadataService.reindexKnowledge(updated.id, (updated.metadata ?? {}) as Record<string, any>)
     const ws = await prisma.knowledge.findUnique({ where: { id: updated.id }, select: { workspaceId: true } })
     if (ws) await emitUpsert(ws.workspaceId, updated.id)
+    // Activity log for update
+    await activityService.log({
+      action: 'UPDATE',
+      resourceType: 'KNOWLEDGE',
+      resourceId: updated.id,
+      workspaceId: ws?.workspaceId ?? null,
+      metadata: { fields: Object.keys({
+        ...(input.title !== undefined ? { title: true } : {}),
+        ...(input.content !== undefined ? { content: true } : {}),
+        ...(input.collectionId !== undefined ? { collectionId: true } : {}),
+        ...(input.status !== undefined ? { status: true } : {}),
+        ...(input.metadata !== undefined ? { metadata: true } : {}),
+      }) },
+    })
     return updated
   }
 }

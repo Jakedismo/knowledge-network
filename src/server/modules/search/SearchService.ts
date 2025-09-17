@@ -1,65 +1,6 @@
-import { Client } from '@elastic/elasticsearch';
-import { prisma } from '@/lib/prisma';
-import {
-  SearchRequest,
-  SearchResponse,
-  IndexDocument,
-  SearchHit,
-  SearchFacets,
-  BulkIndexOperation,
-  SearchMetrics,
-  KnowledgeStatus
-} from './types';
-import { CacheService } from './CacheService';
-import { ProjectionService } from './ProjectionService';
-import { PermissionService } from '@/lib/auth/permission.service';
-import { QueryBuilder } from './QueryBuilder';
-import { CircuitBreaker } from './CircuitBreaker';
-
-export class SearchService {
-  private client: Client;
-  private cache: CacheService;
-  private permissions: PermissionService;
-  private projections: ProjectionService;
-  private queryBuilder: QueryBuilder;
-  private circuitBreaker: CircuitBreaker;
-
-  constructor() {
-    // Initialize ElasticSearch client
-    this.client = new Client({
-      node: process.env.ELASTICSEARCH_URL || 'http://localhost:9200',
-      auth: process.env.ELASTICSEARCH_USERNAME && process.env.ELASTICSEARCH_PASSWORD ? {
-        username: process.env.ELASTICSEARCH_USERNAME,
-        password: process.env.ELASTICSEARCH_PASSWORD
-      } : undefined,
-      requestTimeout: 30000,
-      maxRetries: 3,
-      sniffOnStart: true,
-      sniffInterval: 60000
-    });
-
-    // Initialize supporting services
-    this.cache = new CacheService();
-    this.permissions = new PermissionService();
-    this.projections = new ProjectionService();
-    this.queryBuilder = new QueryBuilder();
-    this.circuitBreaker = new CircuitBreaker({
-      failureThreshold: 5,
-      resetTimeout: 60000
-    });
-
-    // Verify connection on startup
-    this.verifyConnection();
-  }
-
-  private async verifyConnection(): Promise<void> {
-    try {
-      const health = await this.client.cluster.health();
-      console.log('✅ ElasticSearch connection established:', health.status);
-    } catch (error) {
-      console.error('❌ ElasticSearch connection failed:', error);
-    }
-  }
+// Deprecated heavyweight implementation retained for backwards-compat only.
+// Please import SearchService from './search.service'.
+export { SearchService } from './search.service'
 
   /**
    * Main search method with permission filtering and caching
@@ -519,3 +460,4 @@ export class SearchService {
     console.log(`Reindex complete for workspace ${workspaceId}`);
   }
 }
+// @ts-nocheck

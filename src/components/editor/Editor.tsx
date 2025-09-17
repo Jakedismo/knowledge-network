@@ -11,6 +11,11 @@ import type { CollaborationProvider } from '@/lib/editor/collaboration/provider'
 import type { EditorModel } from '@/lib/editor/model'
 import type { PresenceState } from './hooks/use-collaboration'
 import { useCollaboration } from './hooks/use-collaboration'
+import { useTypingIndicator } from './hooks/use-typing'
+import { PresenceSidebar } from '../collab/PresenceSidebar'
+import { SyncIndicator } from '../collab/SyncIndicator'
+import { ConflictBanner } from '../collab/ConflictBanner'
+import { SelectionOverlay } from '../collab/SelectionOverlay'
 
 type CollaborationConfig = {
   roomId: string
@@ -34,7 +39,7 @@ type EditorProps = {
 type EditorInnerProps = Omit<EditorProps, 'children' | 'collaboration'>
 
 function EditorInner({ className, placeholder, autoFocus, onCommentAction, onMentionAction }: EditorInnerProps) {
-  const { setCommentAction, setMentionAction, collaborationStatus } = useEditor()
+  const { setCommentAction, setMentionAction } = useEditor()
   useEffect(() => {
     setCommentAction?.(onCommentAction ?? (() => {}))
     setMentionAction?.(onMentionAction ?? (() => {}))
@@ -47,11 +52,12 @@ function EditorInner({ className, placeholder, autoFocus, onCommentAction, onMen
   const content = useEditorStore((s) => s.content)
   const mode = useEditorStore((s) => s.mode)
   const setContent = useEditorStore((s) => s.setContent)
-  const { setTextareaRef, model, collaborationProvider } = useEditor()
+  const { setTextareaRef, model, collaborationProvider, collaborationStatus } = useEditor()
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const contentRef = useRef(content)
   const { uploadMedia, status: uploadStatus, error } = useMediaUpload()
   const [liveMessage, setLiveMessage] = useState('')
+  useTypingIndicator()
 
   useEffect(() => {
     if (autoFocus) textareaRef.current?.focus()
@@ -249,20 +255,54 @@ function EditorInner({ className, placeholder, autoFocus, onCommentAction, onMen
         model={model}
         mode={mode}
       />
+      <SelectionOverlay
+        textareaRef={textareaRef}
+        provider={collaborationProvider}
+        model={model}
+        mode={mode}
+      />
     </div>
   )
 
   return (
     <div className="flex flex-col gap-2">
       <Toolbar textareaRef={textareaRef} onAnnounce={setLiveMessage} />
-      <CollaborationPresence />
+      <div className="flex items-start gap-3">
+        <div className="flex-1">
+          <CollaborationPresence />
+          <SyncIndicator provider={collaborationProvider} status={collaborationStatus} className="mt-1" />
+          <ConflictBanner provider={collaborationProvider} model={model} className="mt-2" />
+        </div>
+        <PresenceSidebar
+          provider={collaborationProvider}
+          model={model}
+          onFollow={(clientId) => {
+            const el = textareaRef.current
+            const provider = collaborationProvider
+            if (!el || !provider) return
+            const state = provider.awareness.getStates().get(clientId) as any
+            const sel = state?.selection as { blockId: string; range?: { start: number; end: number }; color?: string }
+            if (!sel || !sel.range) return
+            const block = model.getBlocks().find((b) => b.id === sel.blockId)
+            if (!block) return
+            const style = window.getComputedStyle(el)
+            const offset = block.start + Math.min(sel.range.start, sel.range.end)
+            const { row } = computeCursorCoords(model.getText(), offset, style, { current: null }, 8)
+            const paddingTop = parseFloat(style.paddingTop) || 0
+            const lineHeight = parseFloat(style.lineHeight) || 18
+            const targetTop = Math.max(0, paddingTop + row * lineHeight - el.clientHeight * 0.3)
+            el.scrollTo({ top: targetTop, behavior: 'smooth' })
+            el.focus()
+          }}
+        />
+      </div>
       {mode === 'write' ? (
         editorArea
       ) : (
         <PreviewBlocks
           model={model}
-          onCommentAction={onCommentAction}
-          onMentionAction={onMentionAction}
+          {...(onCommentAction ? { onCommentAction } : {})}
+          {...(onMentionAction ? { onMentionAction } : {})}
         />
       )}
       <div role="status" aria-live="polite" className="sr-only" data-testid="editor-live-region">
@@ -302,14 +342,14 @@ function CollaborationPresence() {
     const update = () => {
       const states = awareness.getStates()
       const next: Array<{ id: number; name: string; color?: string }> = []
-      states.forEach((state, clientId) => {
+      states.forEach((state: unknown, clientId: number) => {
         if (clientId === provider.doc.clientID) return
         const presence = (state as any)?.presence as { displayName?: string; color?: string } | undefined
-        next.push({
-          id: clientId,
-          name: presence?.displayName ?? `User ${clientId}`,
-          color: presence?.color,
-        })
+        const base = { id: clientId, name: presence?.displayName ?? `User ${clientId}` } as {
+          id: number; name: string; color?: string
+        }
+        if (presence?.color) base.color = presence.color
+        next.push(base)
       })
       setPeers(next)
     }
@@ -417,7 +457,7 @@ function CursorOverlay({ textareaRef, provider, model, mode }: CursorOverlayProp
     const blocks = model.getBlocks()
 
     const next: CursorPosition[] = []
-    provider.awareness.getStates().forEach((state, clientId) => {
+    provider.awareness.getStates().forEach((state: unknown, clientId: number) => {
       if (clientId === provider.doc.clientID) return
       const selection = (state as any)?.selection as
         | { blockId: string; range?: { start: number; end: number }; color?: string; displayName?: string }
@@ -430,13 +470,15 @@ function CursorOverlay({ textareaRef, provider, model, mode }: CursorOverlayProp
       const top = paddingTop + row * lineHeight - scrollTop
       const left = paddingLeft + px - scrollLeft
       if (top < -lineHeight || top > clientHeight + lineHeight) return
-      next.push({
+      const base: CursorPosition = {
         id: clientId,
         top,
         left,
-        color: selection.color ?? (state as any)?.presence?.color,
         name: (state as any)?.presence?.displayName ?? `User ${clientId}`,
-      })
+      }
+      const color = selection.color ?? (state as any)?.presence?.color
+      if (color) base.color = color
+      next.push(base)
     })
     setPositions(next)
   }, [computeMetrics, model, mode, provider, textareaRef])

@@ -52,6 +52,7 @@ export async function projectKnowledgeToIndex(id: string): Promise<IndexDocument
     status: k.status as any,
     author: { id: k.author.id, displayName: k.author.displayName },
     collection: k.collection ? { id: k.collection.id, name: k.collection.name, path: collectionPath.map((n) => n.name).join(' / ') } : undefined,
+    collectionPath: collectionPath.map((n) => n.name).join(' / '),
     tags,
     metadata: { ...k.metadata, isTemplate: k.isTemplate } as Record<string, unknown>,
     facets,

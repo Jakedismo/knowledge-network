@@ -24,12 +24,16 @@ export async function POST(req: NextRequest) {
     // Expose auth to ws-token helper via global (scoped to this request lifecycle)
     ;(globalThis as any).__collab_access_payload = payload
 
-    const result = await mintWsToken({
-      knowledgeId,
-      requestId: req.headers.get('x-request-id') ?? undefined,
-      userAgent: req.headers.get('user-agent') ?? undefined,
-      ipHash: hashIp(req.headers.get('x-forwarded-for') ?? ''),
-    })
+    const base: { knowledgeId: string; requestId?: string; userAgent?: string; ipHash?: string } = { knowledgeId }
+    const rid = req.headers.get('x-request-id')
+    if (rid) base.requestId = rid
+    const ua = req.headers.get('user-agent')
+    if (ua) base.userAgent = ua
+    const xf = req.headers.get('x-forwarded-for')
+    const ip = hashIp(xf ?? '')
+    if (ip) base.ipHash = ip
+
+    const result = await mintWsToken(base)
 
     // Cleanup
     delete (globalThis as any).__collab_access_payload

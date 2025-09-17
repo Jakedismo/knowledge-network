@@ -45,3 +45,7 @@ Status: Phase 2 final swarm — baseline shipped on September 17, 2025.
 - Store abstraction (`template.store.ts`) supports replacement by DB or microservice later.
 - Keep API shapes stable: `GET /api/templates`, `POST /api/templates`, `GET/PATCH/DELETE /api/templates/:id`, `POST /api/templates/render`.
 
+## Optional Dependencies
+- The collaborative editor modules expect `yjs` and `y-protocols/awareness`. Development builds fall back to lightweight stubs under `src/stubs/`; install real packages with `bun add yjs y-protocols` (or remove the alias in `next.config.js`) for production-grade collaboration.
+- Search and organization adapters degrade gracefully when `@prisma/client`, `@elastic/elasticsearch`, or `ioredis` are absent. The aliases in `next.config.js` can be removed once those packages are added (e.g. `bun add @prisma/client @elastic/elasticsearch ioredis`).
+- The fallbacks allow CI/builds to run without external downloads; when enabling the real services ensure environment variables (`ELASTICSEARCH_URL`, `REDIS_URL`, `ORG_ADAPTER=prisma`, etc.) are configured accordingly.

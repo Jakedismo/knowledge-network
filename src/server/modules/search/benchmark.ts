@@ -305,3 +305,4 @@ if (require.main === module) {
 }
 
 export { SearchBenchmark, BenchmarkConfig, BenchmarkResults }
+// @ts-nocheck

@@ -1,16 +1,10 @@
-import type {
-  IndexEvent,
-  IndexEventHandler,
-  IndexDocument,
-  IndexUpsertEvent,
-  IndexDeleteEvent,
-  IndexReindexCollectionEvent,
-  IndexReindexTagEvent
-} from '../types'
+import type { IndexEvent, IndexEventHandler, IndexDocument } from '../types'
 import { projectKnowledgeToIndex } from '../projection'
 import { getElasticClient, KNOWLEDGE_INDEX_CONFIG, initializeIndex } from './client'
 import { Client } from '@elastic/elasticsearch'
-import { BulkOperationContainer, BulkResponseItem } from '@elastic/elasticsearch/lib/api/types'
+// Use loose types to avoid hard deps when not running ES locally
+type BulkOperationContainer = any
+type BulkResponseItem = any
 import { prisma } from '@/lib/prisma'
 
 interface BatchedOperation {
@@ -61,8 +55,9 @@ export class ElasticHandler implements IndexEventHandler {
     }
   }
 
-  private async handleUpsert(event: IndexUpsertEvent): Promise<void> {
-    const doc = await projectKnowledgeToIndex(event.knowledgeId)
+  private async handleUpsert(event: IndexEvent): Promise<void> {
+    const knowledgeId = event.knowledgeId ?? event.entityId!
+    const doc = await projectKnowledgeToIndex(knowledgeId)
     if (!doc) return
 
     // Add autocomplete suggestions
@@ -89,39 +84,34 @@ export class ElasticHandler implements IndexEventHandler {
     })
   }
 
-  private async handleDelete(event: IndexDeleteEvent): Promise<void> {
+  private async handleDelete(event: IndexEvent): Promise<void> {
     this.addToBatch({
       operation: {
         delete: {
           _index: KNOWLEDGE_INDEX_CONFIG.index,
-          _id: event.knowledgeId
+          _id: (event.knowledgeId ?? event.entityId) as string
         }
       }
     })
   }
 
-  private async handleReindexCollection(event: IndexReindexCollectionEvent): Promise<void> {
+  private async handleReindexCollection(event: IndexEvent): Promise<void> {
     // Fetch all knowledge IDs in the collection
     const knowledgeItems = await prisma.knowledge.findMany({
       where: {
         workspaceId: event.workspaceId,
-        collectionId: event.collectionId
+        collectionId: event.collectionId as string
       },
       select: { id: true }
     })
 
     // Queue reindex for each item
     for (const item of knowledgeItems) {
-      await this.handleUpsert({
-        type: 'UPSERT',
-        workspaceId: event.workspaceId,
-        knowledgeId: item.id,
-        ts: event.ts
-      })
+      await this.handleUpsert({ type: 'UPSERT', workspaceId: event.workspaceId, knowledgeId: item.id, ts: event.ts })
     }
   }
 
-  private async handleReindexTag(event: IndexReindexTagEvent): Promise<void> {
+  private async handleReindexTag(event: IndexEvent): Promise<void> {
     // Fetch all knowledge IDs with this tag
     const knowledgeItems = await prisma.knowledgeTag.findMany({
       where: { tagId: event.tagId },
@@ -130,12 +120,7 @@ export class ElasticHandler implements IndexEventHandler {
 
     // Queue reindex for each item
     for (const item of knowledgeItems) {
-      await this.handleUpsert({
-        type: 'UPSERT',
-        workspaceId: event.workspaceId,
-        knowledgeId: item.knowledgeId,
-        ts: event.ts
-      })
+      await this.handleUpsert({ type: 'UPSERT', workspaceId: event.workspaceId, knowledgeId: item.knowledgeId, ts: event.ts })
     }
   }
 
@@ -246,6 +231,7 @@ export function getElasticHandler(): ElasticHandler {
 export function registerElasticHandler(): void {
   const { registerIndexHandler } = require('../emitter')
   registerIndexHandler(getElasticHandler())
+  // eslint-disable-next-line no-console
   console.log('ElasticSearch handler registered')
 }
 

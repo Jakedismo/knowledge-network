@@ -77,10 +77,14 @@ export function MetadataForm({ fields, values, onChange, onSubmit, className, su
                         return <Input type="date" value={(rhf.value as string | undefined) ?? ''} onChange={rhf.onChange} />
                       case 'url':
                         return <Input type="url" placeholder="https://" value={(rhf.value as string | undefined) ?? ''} onChange={rhf.onChange} />
-                      case 'select':
-                        return (
-                          <Select value={rhf.value as string | undefined} onValueChange={rhf.onChange} options={(field.options ?? []).map(o => ({ label: o.label, value: o.value }))} />
-                        )
+                      case 'select': {
+                        const selectProps: any = {
+                          onValueChange: rhf.onChange,
+                          options: (field.options ?? []).map(o => ({ label: o.label, value: o.value })),
+                        }
+                        if (typeof rhf.value === 'string') selectProps.value = rhf.value
+                        return <Select {...selectProps} />
+                      }
                       case 'multiselect':
                         return (
                           <Textarea

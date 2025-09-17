@@ -1,0 +1,18 @@
+{
+  "summary": "Swarm 3D workflows engine, APIs, schema, and tests ready.",
+  "artifacts": [
+    "docs/architecture/workflows-architecture.md",
+    "docs/api/workflows-api.md",
+    "docs/handoff/phase3d-workflows-handoff.md",
+    "prisma/schema.prisma",
+    "src/server/modules/workflows/*",
+    "src/app/api/workflows/*",
+    "src/app/api/reviews/*",
+    "src/test/workflows.spec.ts"
+  ],
+  "notes": "Global type-check fails from legacy modules; workflows code passes isolated tests. Recommend parallel fix per Quality Gates.",
+  "run": {
+    "tests": "bunx vitest run src/test/workflows.spec.ts",
+    "dev": "bun run dev"
+  }
+}

@@ -12,5 +12,10 @@ export * from './editor/api'
 export { EditorProvider } from './editor/EditorProvider'
 export { Editor } from './editor/Editor'
 
+// Collaboration UI
+export { PresenceSidebar } from './collab/PresenceSidebar'
+export { SyncIndicator } from './collab/SyncIndicator'
+export { ConflictBanner } from './collab/ConflictBanner'
+
 // Organization (2C)
 export * as Organization from './organization'

@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     const clusterStats = await client.cluster.stats()
 
     // Get current metrics from monitor
-    const searchMetrics = performanceMonitor.calculateMetrics()
+    const searchMetrics = performanceMonitor.getCurrentMetrics()
 
     // Combine all metrics
     const response = {

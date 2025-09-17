@@ -8,4 +8,3 @@ export default async function KnowledgePage({ params }: { params: { id: string }
     </main>
   )
 }
-

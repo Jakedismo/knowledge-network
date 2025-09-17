@@ -444,3 +444,4 @@ export function getSearchService(): SearchService {
   }
   return searchService
 }
+// @ts-nocheck

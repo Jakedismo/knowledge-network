@@ -143,11 +143,13 @@ export const apolloClient = new ApolloClient({
     query: {
       errorPolicy: 'all',
     },
-    mutate: {
-      errorPolicy: 'all',
-    },
+  mutate: {
+    errorPolicy: 'all',
   },
-  connectToDevTools: process.env.NODE_ENV === 'development',
+  },
+  devtools: {
+    enabled: process.env.NODE_ENV === 'development',
+  },
 })
 
 // Helper function to get authenticated user

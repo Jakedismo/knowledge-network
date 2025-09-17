@@ -37,6 +37,17 @@ export const GET_USER = gql`
   }
 `
 
+export const GET_USERS = gql`
+  query GetUsers($workspaceId: ID!) {
+    users(workspaceId: $workspaceId) {
+      id
+      displayName
+      avatarUrl
+      status
+    }
+  }
+`
+
 // Workspace Queries
 export const GET_WORKSPACE = gql`
   query GetWorkspace($id: ID!) {
@@ -173,6 +184,41 @@ export const GET_KNOWLEDGE = gql`
           displayName
         }
       }
+    }
+  }
+`
+
+// Standalone comments query for a knowledge document
+export const GET_COMMENTS = gql`
+  query GetComments($knowledgeId: ID!) {
+    comments(knowledgeId: $knowledgeId) {
+      edges {
+        node {
+          id
+          content
+          positionData
+          status
+          createdAt
+          updatedAt
+          knowledgeId
+          authorId
+          parentId
+          author { id displayName avatarUrl }
+          replies {
+            id
+            content
+            status
+            createdAt
+            updatedAt
+            knowledgeId
+            authorId
+            parentId
+            author { id displayName avatarUrl }
+          }
+        }
+      }
+      pageInfo { hasNextPage endCursor }
+      totalCount
     }
   }
 `

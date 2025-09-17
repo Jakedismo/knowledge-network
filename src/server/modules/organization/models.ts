@@ -17,6 +17,9 @@ export enum OrgPermission {
   DOCUMENT_DELETE = 'document:delete',
   TAG_CREATE = 'tag:create',
   TAG_UPDATE = 'tag:update',
+  WORKFLOW_MANAGE = 'workflow:manage',
+  REVIEW_START = 'review:start',
+  REVIEW_DECIDE = 'review:decide',
 }
 
 export interface AccessCheck {

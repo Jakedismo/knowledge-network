@@ -50,6 +50,8 @@ export interface IndexDocument {
     name: string;
     path: string;
   };
+  // Back-compat: some tests reference collectionPath directly
+  collectionPath?: string;
   tags: Array<{
     id: string;
     name: string;
@@ -151,11 +153,18 @@ export interface SearchAnalytics {
   sessionId?: string;
 }
 
+// Event envelope used by both the minimal emitter and the advanced handler
 export interface IndexEvent {
   type: 'UPSERT' | 'DELETE' | 'REINDEX_COLLECTION' | 'REINDEX_TAG' | 'REINDEX_WORKSPACE';
-  entityId: string;
   workspaceId: string;
-  timestamp: Date;
+  // Identifier fields (only one is used depending on type)
+  entityId?: string; // used by advanced handler
+  knowledgeId?: string; // used by simple emitter
+  collectionId?: string;
+  tagId?: string;
+  // Timestamp (support both shapes)
+  timestamp?: Date;
+  ts?: string;
   metadata?: Record<string, any>;
 }
 

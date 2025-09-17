@@ -14,7 +14,7 @@ const config: StorybookConfig = {
     '@storybook/addon-docs',
     '@storybook/addon-a11y',
     '@storybook/addon-viewport',
-    '@storybook/addon-onboarding',
+    // '@storybook/addon-onboarding', // remove to avoid 9.x-only internals
   ],
   framework: {
     name: '@storybook/nextjs',

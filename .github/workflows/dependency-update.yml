@@ -1,88 +1,10 @@
-name: Dependency Updates
+name: Dependency Updates (DISABLED)
 
-on:
-  schedule:
-    # Run every Monday at 9 AM UTC
-    - cron: '0 9 * * 1'
-  workflow_dispatch:
+on: workflow_dispatch
 
 jobs:
-  update-dependencies:
-    name: Update Dependencies
+  disabled:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
+    if: false
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: "1.x"
-
-      - name: Update Dependencies
-        run: |
-          bun update
-          bun install
-
-      - name: Run Tests
-        run: |
-          bun run type-check
-          bun run lint
-          bun run build
-
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: 'chore: update dependencies'
-          title: 'chore: Weekly dependency updates'
-          body: |
-            ## Automated Dependency Updates
-
-            This PR contains automated dependency updates for the week.
-
-            ### Changes
-            - Updated all dependencies to latest compatible versions
-            - Ran quality checks to ensure no breaking changes
-
-            ### Testing
-            - ✅ TypeScript compilation passes
-            - ✅ Linting passes
-            - ✅ Build completes successfully
-
-            Please review the changes and merge if everything looks good.
-          branch: dependency-updates
-          delete-branch: true
-
-  security-audit:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: "1.x"
-
-      - name: Install Dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Security Audit
-        run: bun audit
-
-      - name: Notify on Vulnerabilities
-        if: failure()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: failure
-          channel: '#security'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-          text: "🚨 Security vulnerabilities detected in dependencies!"
+      - run: echo "Dependency updates are disabled"

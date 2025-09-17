@@ -312,8 +312,10 @@ export function withPermission<P extends object>(
   resource?: string
 ) {
   return function PermissionWrappedComponent(props: P) {
+    const guardProps: any = { permission }
+    if (resource !== undefined) guardProps.resource = resource
     return (
-      <PermissionGuard permission={permission} resource={resource}>
+      <PermissionGuard {...guardProps}>
         <Component {...props} />
       </PermissionGuard>
     )

@@ -168,6 +168,11 @@ class PerformanceMonitor extends EventEmitter {
     }
   }
 
+  // Public accessor for current metrics snapshot
+  getCurrentMetrics(): SearchMetrics {
+    return this.calculateMetrics()
+  }
+
   private calculatePercentile(values: number[], percentile: number): number {
     if (values.length === 0) return 0
 

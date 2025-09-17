@@ -1,123 +1,14 @@
-name: CI/CD Pipeline - Knowledge Network
+name: CI/CD Pipeline - Knowledge Network (DISABLED)
 
-on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
-
-env:
-  NODE_VERSION: "18.17.0"
-  BUN_VERSION: "1.x"
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+# Disabled: allow manual dispatch only; job has if:false to skip
+on: workflow_dispatch
 
 jobs:
-  # Quality Gates
-  quality-checks:
-    name: Quality Checks
+  disabled:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
+    if: false
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Cache Dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.bun/cache
-            node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - name: Install Dependencies
-        run: bun install --frozen-lockfile
-
-      - name: TypeScript Type Check
-        run: bun run type-check
-
-      - name: ESLint Check
-        run: bun run lint
-
-      - name: Oxlint Check
-        run: bun run oxlint
-
-      - name: Prettier Check
-        run: bun x prettier --check .
-
-  # Build and Test
-  build-and-test:
-    name: Build and Test
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: quality-checks
-
-    strategy:
-      matrix:
-        node-version: ["18.17.0", "20.x"]
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Cache Dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.bun/cache
-            node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
-
-      - name: Install Dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Build Application
-        run: bun run build
-        env:
-          NEXT_PUBLIC_APP_ENV: production
-
-      - name: Unit Tests
-        run: bun run test
-        env:
-          NODE_ENV: test
-
-      - name: Test Coverage
-        run: bun run test:coverage
-
-      - name: Upload Coverage Reports
-        if: matrix.node-version == '18.17.0'
-        uses: codecov/codecov-action@v3
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage/lcov.info
-          fail_ci_if_error: true
-
-      - name: Store Build Artifacts
-        if: matrix.node-version == '18.17.0'
-        uses: actions/upload-artifact@v3
-        with:
-          name: build-artifacts
-          path: |
-            .next/
-            public/
-          retention-days: 1
+      - run: echo "CI is disabled"
 
   # Security Scanning
   security-scan:

@@ -355,3 +355,18 @@ export class ProjectionService {
     }
   }
 }
+import { prisma } from '@/lib/db/prisma'
+import type { IndexDocument } from './types'
+import { projectKnowledgeToIndex } from './projection'
+
+export class ProjectionService {
+  async projectToIndex(knowledgeId: string): Promise<IndexDocument | null> {
+    return projectKnowledgeToIndex(knowledgeId)
+  }
+
+  async getAllDocuments(workspaceId: string): Promise<IndexDocument[]> {
+    const ids = await prisma.knowledge.findMany({ where: { workspaceId }, select: { id: true } })
+    const docs = await Promise.all(ids.map((k) => projectKnowledgeToIndex(k.id)))
+    return docs.filter((d): d is IndexDocument => !!d)
+  }
+}

@@ -669,3 +669,220 @@ model ImportJob {
   @@index([createdAt(sort: Desc)])
   @@map("import_jobs")
 }
+
+// =========================
+// Review & Approval Workflows
+// =========================
+
+enum ReviewStatus {
+  PENDING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+  CANCELLED
+}
+
+enum DecisionType {
+  APPROVE
+  REJECT
+  REQUEST_CHANGES
+}
+
+enum AssigneeType {
+  USER
+  ROLE
+}
+
+enum WorkflowStepType {
+  SINGLE_APPROVAL
+  MULTI_APPROVAL
+  ANY_OF
+  ALL_OF
+  FYI
+}
+
+enum AssigneeState {
+  PENDING
+  NOTIFIED
+  ACCEPTED
+  DELEGATED
+  COMPLETED
+  EXPIRED
+}
+
+enum EscalationAction {
+  NOTIFY
+  REASSIGN
+  AUTO_APPROVE
+  AUTO_REJECT
+}
+
+model ReviewWorkflow {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  name        String
+  description String?
+  version     Int      @default(1)
+  isActive    Boolean  @default(true) @map("is_active")
+  config      Json     @default("{}") // free-form options (e.g., notifications)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  steps     WorkflowStep[]
+  requests  ReviewRequest[]
+
+  @@index([workspaceId])
+  @@unique([workspaceId, name, version])
+  @@map("review_workflows")
+}
+
+model WorkflowStep {
+  id           String           @id @default(cuid())
+  workflowId   String           @map("workflow_id")
+  index        Int              // 0-based order
+  type         WorkflowStepType @default(SINGLE_APPROVAL)
+  name         String
+  description  String?
+  requiredApprovals Int         @default(1) @map("required_approvals")
+  slaHours     Int?             @map("sla_hours")
+  metadata     Json             @default("{}")
+
+  // Relations
+  workflow   ReviewWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  assignees  WorkflowStepAssignee[]
+  escalations EscalationPolicy[]
+
+  @@unique([workflowId, index])
+  @@index([workflowId])
+  @@map("workflow_steps")
+}
+
+model WorkflowStepAssignee {
+  id          String       @id @default(cuid())
+  stepId      String       @map("step_id")
+  assigneeType AssigneeType @map("assignee_type")
+  assigneeId  String       @map("assignee_id") // userId or roleId
+  minApprovals Int?        @map("min_approvals")
+
+  step WorkflowStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@unique([stepId, assigneeType, assigneeId])
+  @@index([stepId])
+  @@map("workflow_step_assignees")
+}
+
+model EscalationPolicy {
+  id          String           @id @default(cuid())
+  stepId      String           @map("step_id")
+  afterHours  Int              @map("after_hours")
+  action      EscalationAction
+  toType      AssigneeType?    @map("to_type")
+  toId        String?          @map("to_id")
+  notify      String[]         @default([]) // channels: email, slack, etc.
+  metadata    Json             @default("{}")
+
+  step WorkflowStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@index([stepId])
+  @@map("escalation_policies")
+}
+
+model ReviewRequest {
+  id            String       @id @default(cuid())
+  workspaceId   String       @map("workspace_id")
+  knowledgeId   String       @map("knowledge_id")
+  workflowId    String       @map("workflow_id")
+  initiatorId   String       @map("initiator_id")
+  status        ReviewStatus @default(PENDING)
+  currentStep   Int          @default(0) @map("current_step")
+  dueAt         DateTime?    @map("due_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  knowledge Knowledge     @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  workflow  ReviewWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  initiator User          @relation(fields: [initiatorId], references: [id])
+  decisions ApprovalDecision[]
+  assignments ReviewAssignee[]
+  changes    ReviewChangeRequest[]
+  events     ReviewEvent[]
+
+  @@index([workspaceId])
+  @@index([knowledgeId])
+  @@index([workflowId])
+  @@index([status])
+  @@map("review_requests")
+}
+
+model ReviewAssignee {
+  id           String        @id @default(cuid())
+  requestId    String        @map("request_id")
+  stepIndex    Int           @map("step_index")
+  assigneeType AssigneeType  @map("assignee_type")
+  assigneeId   String        @map("assignee_id")
+  state        AssigneeState @default(PENDING)
+  delegatedToId String?      @map("delegated_to_id")
+  notifiedAt   DateTime?     @map("notified_at")
+  actedAt      DateTime?     @map("acted_at")
+
+  request ReviewRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([assigneeId])
+  @@unique([requestId, stepIndex, assigneeType, assigneeId])
+  @@map("review_assignees")
+}
+
+model ApprovalDecision {
+  id          String       @id @default(cuid())
+  requestId   String       @map("request_id")
+  stepIndex   Int          @map("step_index")
+  reviewerId  String       @map("reviewer_id")
+  decision    DecisionType
+  comment     String?
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  request ReviewRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  reviewer User         @relation(fields: [reviewerId], references: [id])
+
+  @@index([requestId])
+  @@index([reviewerId])
+  @@map("approval_decisions")
+}
+
+model ReviewChangeRequest {
+  id             String   @id @default(cuid())
+  requestId      String   @map("request_id")
+  versionFromId  String   @map("version_from_id")
+  versionToId    String   @map("version_to_id")
+  summary        String?
+  status         String   @default("OPEN")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  request   ReviewRequest   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  from      KnowledgeVersion @relation("ChangeFromVersion", fields: [versionFromId], references: [id])
+  to        KnowledgeVersion @relation("ChangeToVersion", fields: [versionToId], references: [id])
+
+  @@index([requestId])
+  @@map("review_change_requests")
+}
+
+model ReviewEvent {
+  id         String   @id @default(cuid())
+  requestId  String   @map("request_id")
+  actorId    String?  @map("actor_id")
+  type       String
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  request ReviewRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  actor   User?         @relation(fields: [actorId], references: [id])
+
+  @@index([requestId, createdAt(sort: Desc)])
+  @@map("review_events")
+}
