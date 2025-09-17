@@ -142,6 +142,7 @@ export function usePerformanceMonitor(componentName: string) {
 
     // Log performance in development
     if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
       console.log(
         `${componentName}: Render #${renderCount.current} took ${renderTime.toFixed(2)}ms`
       )
@@ -194,6 +195,7 @@ export function useLazyComponent<T>(
     return () => {
       isCancelled = true
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
 
   return { Component, isLoading, error }

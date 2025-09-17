@@ -150,8 +150,8 @@ export const AccordionExample: Story = {
         <AccordionItem value="item-1">
           <AccordionTrigger>How do I create a new knowledge article?</AccordionTrigger>
           <AccordionContent>
-            To create a new knowledge article, navigate to the "Create" section in the main menu,
-            select "New Article," and use our rich text editor to compose your content. You can
+            To create a new knowledge article, navigate to the &quot;Create&quot; section in the main menu,
+            select &quot;New Article,&quot; and use our rich text editor to compose your content. You can
             add images, code blocks, and links to make your article comprehensive.
           </AccordionContent>
         </AccordionItem>
@@ -167,7 +167,7 @@ export const AccordionExample: Story = {
           <AccordionTrigger>How does the search functionality work?</AccordionTrigger>
           <AccordionContent>
             Our advanced search uses AI-powered semantic search to find relevant content even when
-            you don't use exact keywords. You can filter by tags, authors, date ranges, and content
+            you don&apos;t use exact keywords. You can filter by tags, authors, date ranges, and content
             types to narrow down results.
           </AccordionContent>
         </AccordionItem>

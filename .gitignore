@@ -288,3 +288,6 @@ out/
 
 # Build info
 .next/
+
+# Playwright
+.playwright-mcp/

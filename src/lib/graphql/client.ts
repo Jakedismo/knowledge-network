@@ -34,6 +34,7 @@ const authLink = setContext((_, { headers }) => {
 const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) => {
   if (graphQLErrors) {
     graphQLErrors.forEach(({ message, locations, path, extensions }) => {
+      // eslint-disable-next-line no-console
       console.error(
         `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`
       )
@@ -49,6 +50,7 @@ const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) 
   }
 
   if (networkError) {
+    // eslint-disable-next-line no-console
     console.error(`[Network error]: ${networkError}`)
 
     // Handle network errors
@@ -169,6 +171,7 @@ export const getAuthenticatedUser = () => {
     const payload = JSON.parse(atob(parts[1]))
     return payload
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('Error parsing auth token:', error)
     localStorage.removeItem('auth-token')
     return null
