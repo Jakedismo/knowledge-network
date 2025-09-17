@@ -61,6 +61,18 @@ enum CollaborationSnapshotReason {
   RECOVERY
 }
 
+// Access Control: Fine-grained permissions at workspace/collection/knowledge scopes
+enum ResourceType {
+  WORKSPACE
+  COLLECTION
+  KNOWLEDGE
+}
+
+enum SubjectType {
+  USER
+  ROLE
+}
+
 // Core Tables
 model User {
   id           String     @id @default(cuid())
@@ -92,6 +104,10 @@ model Workspace {
   isActive    Boolean @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Ownership (for administration defaults)
+  ownerId     String? @map("owner_id")
+  owner       User?   @relation(fields: [ownerId], references: [id])
 
   // Relations
   knowledge       Knowledge[]
@@ -161,6 +177,9 @@ model Collection {
   workspaceId String  @map("workspace_id")
   parentId    String? @map("parent_id")
 
+  // Optional type for UI semantics (folders/smart views)
+  type        CollectionType @default(FOLDER)
+
   // Relations
   workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   parent    Collection?  @relation("CollectionHierarchy", fields: [parentId], references: [id])
@@ -170,6 +189,11 @@ model Collection {
   @@index([workspaceId])
   @@index([parentId])
   @@map("collections")
+}
+
+enum CollectionType {
+  FOLDER
+  SMART
 }
 
 model Tag {
@@ -531,6 +555,57 @@ model ExternalIntegration {
   @@index([workspaceId])
   @@index([type])
   @@map("external_integrations")
+}
+
+// Access control entries (ACE) with inheritance semantics
+model AccessControlEntry {
+  id           String      @id @default(cuid())
+  workspaceId  String      @map("workspace_id")
+  resourceType ResourceType @map("resource_type")
+  resourceId   String?     @map("resource_id") // null means workspace-scope default
+  subjectType  SubjectType @map("subject_type") // USER or ROLE
+  subjectId    String      @map("subject_id")   // userId or roleId
+  // Permissions as array of strings e.g. ["collection:manage", "document:create"]
+  permissions  Json        @default("[]")
+  inherits     Boolean     @default(true) @map("inherits")
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([resourceType, resourceId])
+  @@unique([workspaceId, resourceType, resourceId, subjectType, subjectId])
+  @@map("access_control_entries")
+}
+
+// Optional metadata index table for targeted querying/sorting on JSON metadata
+enum MetadataValueType {
+  STRING
+  NUMBER
+  DATE
+  BOOLEAN
+}
+
+model MetadataIndexEntry {
+  id          String            @id @default(cuid())
+  knowledgeId String            @map("knowledge_id")
+  keyPath     String            @map("key_path")
+  valueType   MetadataValueType @map("value_type")
+  stringVal   String?           @map("string_val")
+  numberVal   Float?            @map("number_val")
+  dateVal     DateTime?         @map("date_val")
+  boolVal     Boolean?          @map("bool_val")
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  knowledge   Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+
+  @@index([knowledgeId])
+  @@index([keyPath])
+  @@index([valueType, stringVal])
+  @@index([valueType, numberVal])
+  @@index([valueType, dateVal])
+  @@map("metadata_index")
 }
 
 model ImportJob {

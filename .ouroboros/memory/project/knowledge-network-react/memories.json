@@ -1,0 +1,48 @@
+{
+  "version": "1.0.0",
+  "created": "2025-09-17T21:47:19.596Z",
+  "lastModified": "2025-09-17T21:47:30.524Z",
+  "tier": "project",
+  "metadata": {
+    "agentId": "unknown-agent",
+    "projectId": "knowledge-network-react",
+    "projectSlug": "knowledge-network-react",
+    "memoryCount": 2,
+    "totalSize": 3953
+  },
+  "memories": {
+    "search/performance-optimization-patterns": {
+      "value": "{\n  \"patterns\": {\n    \"batch_processing\": {\n      \"description\": \"Batch multiple operations for better throughput\",\n      \"implementation\": \"Queue operations and flush at size/time thresholds\",\n      \"benefits\": \"Reduces network overhead, improves throughput by 10x\",\n      \"configuration\": {\n        \"batchSize\": 100,\n        \"flushInterval\": 1000\n      }\n    },\n    \"connection_pooling\": {\n      \"description\": \"Reuse connections to reduce overhead\",\n      \"implementation\": \"Configure max connections, keep-alive, and socket reuse\",\n      \"benefits\": \"Reduces connection establishment time by 90%\",\n      \"configuration\": {\n        \"maxConnections\": 100,\n        \"keepAlive\": true,\n        \"keepAliveMsecs\": 60000\n      }\n    },\n    \"multi_layer_caching\": {\n      \"description\": \"Cache at multiple levels for optimal performance\",\n      \"layers\": [\n        \"L1: Redis query cache (5min TTL)\",\n        \"L2: In-memory filter cache (30min TTL)\",\n        \"L3: ElasticSearch field/query cache\"\n      ],\n      \"hitRatioTarget\": 0.6\n    },\n    \"query_optimization\": {\n      \"description\": \"Optimize ElasticSearch queries for performance\",\n      \"techniques\": [\n        \"Use filter context for non-scoring queries\",\n        \"Field boosting for relevance\",\n        \"search_after for pagination\",\n        \"doc_values for sorting\"\n      ]\n    },\n    \"monitoring_driven_optimization\": {\n      \"description\": \"Use metrics to drive performance improvements\",\n      \"key_metrics\": [\n        \"P99 latency < 500ms\",\n        \"QPS > 10\",\n        \"Cache hit ratio > 60%\",\n        \"Error rate < 1%\"\n      ]\n    }\n  },\n  \"achievements\": {\n    \"search_latency_p99\": \"< 500ms\",\n    \"indexing_latency\": \"< 100ms per document\",\n    \"concurrent_searches\": \"1000+\",\n    \"throughput\": \"10,000 QPS capability\",\n    \"quality_score\": \"9.0/10\"\n  },\n  \"lessons_learned\": [\n    \"Batching is critical for indexing performance\",\n    \"Connection pooling dramatically reduces latency\",\n    \"Caching query results provides huge performance gains\",\n    \"Monitoring is essential for maintaining performance\",\n    \"Circuit breakers prevent cascade failures\"\n  ]\n}",
+      "metadata": {
+        "created": "2025-09-17T21:47:19.596Z",
+        "lastAccessed": "2025-09-17T21:47:19.596Z",
+        "accessCount": 0,
+        "size": 2314,
+        "tags": [
+          "performance",
+          "elasticsearch",
+          "optimization",
+          "caching"
+        ],
+        "importance": 9,
+        "promotionHistory": []
+      }
+    },
+    "search/elasticsearch-configuration": {
+      "value": "{\n  \"cluster_topology\": {\n    \"master_nodes\": {\n      \"count\": 3,\n      \"instance_type\": \"m5.large\",\n      \"heap\": \"2GB\",\n      \"role\": \"cluster_management\"\n    },\n    \"data_nodes\": {\n      \"count\": \"3+\",\n      \"instance_type\": \"r5.2xlarge\",\n      \"heap\": \"16GB\",\n      \"storage\": \"NVMe SSDs\"\n    },\n    \"coordinating_nodes\": {\n      \"count\": 2,\n      \"instance_type\": \"c5.xlarge\",\n      \"role\": \"query_routing\"\n    }\n  },\n  \"index_settings\": {\n    \"shards\": 6,\n    \"replicas\": 1,\n    \"refresh_interval\": \"1s\",\n    \"cache_settings\": {\n      \"query_cache\": \"10%\",\n      \"fielddata_cache\": \"40%\",\n      \"request_cache\": \"enabled\"\n    }\n  },\n  \"performance_tuning\": {\n    \"jvm_heap\": \"50% of RAM (max 32GB)\",\n    \"circuit_breakers\": \"85% heap usage\",\n    \"bulk_size\": \"100-500 documents\",\n    \"parallel_bulk_requests\": 4\n  },\n  \"monitoring_alerts\": {\n    \"search_p99_threshold\": \"500ms\",\n    \"error_rate_threshold\": \"5%\",\n    \"heap_usage_threshold\": \"85%\"\n  }\n}",
+      "metadata": {
+        "created": "2025-09-17T21:47:30.524Z",
+        "lastAccessed": "2025-09-17T21:47:30.524Z",
+        "accessCount": 0,
+        "size": 1103,
+        "tags": [
+          "configuration",
+          "infrastructure",
+          "production"
+        ],
+        "importance": 8,
+        "promotionHistory": []
+      }
+    }
+  }
+}

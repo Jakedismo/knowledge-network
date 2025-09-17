@@ -11,7 +11,8 @@
     "lint": "next lint && oxlint",
     "lint:fix": "next lint --fix && oxlint --fix",
     "type-check": "tsc --noEmit",
-    "test": "vitest",
+    "test": "vitest run",
+    "test:org": "vitest run src/components/organization/__tests__ --reporter=basic",
     "test:perf": "PERF_STRICT=1 vitest -t performance",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
@@ -19,7 +20,9 @@
     "clean": "rm -rf .next node_modules",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "build:wasm": "bash packages/kn-editor-core/build.sh"
+    "build:wasm": "bash packages/kn-editor-core/build.sh",
+    "search:benchmark": "bun run src/server/modules/search/benchmark.ts",
+    "search:init": "bun run src/server/modules/search/elastic/init.ts"
   },
   "dependencies": {
     "@apollo/client": "^3.8.10",
@@ -58,6 +61,8 @@
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.344.0",
     "ioredis": "^5.4.1",
+    "@elastic/elasticsearch": "^8.11.0",
+    "@faker-js/faker": "^8.4.0",
     "next": "^15.0.1",
     "next-themes": "^0.4.6",
     "passport": "^0.7.0",

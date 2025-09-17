@@ -1,0 +1,71 @@
+# ElasticSearch Configuration for Knowledge Network
+cluster.name: knowledge-search-cluster
+node.name: es-node-01
+
+# Network settings
+network.host: 0.0.0.0
+http.port: 9200
+
+# Discovery settings for single-node development
+discovery.type: single-node
+
+# Memory settings
+bootstrap.memory_lock: true
+
+# Index settings
+action.auto_create_index: ".monitoring*,.watches,.triggered_watches,.watcher-history*,.ml*,knowledge-*"
+
+# Thread pool settings
+thread_pool:
+  search:
+    size: 20
+    queue_size: 1000
+  write:
+    size: 10
+    queue_size: 500
+  get:
+    size: 10
+    queue_size: 1000
+
+# Index management
+indices:
+  memory:
+    index_buffer_size: 30%
+  queries:
+    cache:
+      size: 15%
+  fielddata:
+    cache:
+      size: 30%
+
+# Request cache settings
+indices.requests.cache.size: 2%
+
+# Circuit breaker settings
+indices.breaker:
+  total:
+    limit: 95%
+  fielddata:
+    limit: 40%
+  request:
+    limit: 40%
+
+# Monitoring
+xpack.monitoring.collection.enabled: true
+xpack.monitoring.collection.interval: 30s
+
+# CORS settings for development
+http.cors:
+  enabled: true
+  allow-origin: "*"
+  allow-methods: OPTIONS, HEAD, GET, POST, PUT, DELETE
+  allow-headers: X-Requested-With, Content-Type, Content-Length, Authorization
+  allow-credentials: true
+
+# Slow log settings
+index.search.slowlog.threshold.query.warn: 10s
+index.search.slowlog.threshold.query.info: 5s
+index.search.slowlog.threshold.fetch.warn: 1s
+index.search.slowlog.threshold.fetch.info: 800ms
+index.indexing.slowlog.threshold.index.warn: 10s
+index.indexing.slowlog.threshold.index.info: 5s

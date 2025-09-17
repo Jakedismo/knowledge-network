@@ -209,10 +209,12 @@ async function main() {
     })
     .listen(PORT)
 
-  console.log(`[realtime][elysia] listening on ws://localhost:${PORT}${PATH}`)
+  import { logger } from '@/lib/logger'
+  logger.info(`[realtime][elysia] listening on ws://localhost:${PORT}${PATH}`)
 }
 
 main().catch((err) => {
-  console.error('[realtime][elysia] failed to start', err)
+  import { logger } from '@/lib/logger'
+  logger.error('[realtime][elysia] failed to start', err)
   process.exit(1)
 })

@@ -2,6 +2,7 @@ import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 // SSO Provider Types
 export interface SSOProvider {
@@ -117,7 +118,7 @@ export class SSOService {
       : process.env.JWT_SECRET;
 
     if (!jwtSecret) {
-      console.warn('JWT_SECRET not configured, skipping Passport initialization');
+      logger.warn('JWT_SECRET not configured, skipping Passport initialization');
       return;
     }
 
@@ -376,7 +377,7 @@ export class SSOService {
    */
   private initializeProvider(provider: SSOProvider): void {
     // In a full implementation, you would initialize the actual Passport strategy here
-    console.log(`Initializing SSO provider: ${provider.name} (${provider.type})`);
+    logger.info(`Initializing SSO provider: ${provider.name} (${provider.type})`);
   }
 
   /**

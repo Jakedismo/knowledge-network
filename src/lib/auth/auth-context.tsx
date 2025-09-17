@@ -236,13 +236,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         await refreshTokens()
       } catch (error) {
-        console.error('Token refresh failed:', error)
+        import { logger } from '@/lib/logger'
+        logger.error('Token refresh failed:', error)
         logout()
       }
     }, 14 * 60 * 1000) // Refresh every 14 minutes
 
     return () => clearInterval(refreshInterval)
-  }, [state.accessToken, state.refreshToken])
+  }, [state.accessToken, state.refreshToken, refreshTokens, logout])
 
   // Auth methods
   const login = async (credentials: LoginInput) => {
@@ -283,7 +284,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await logoutMutation()
     } catch (error) {
       // Continue with logout even if server request fails
-      console.error('Logout request failed:', error)
+      import { logger } from '@/lib/logger'
+      logger.error('Logout request failed:', error)
     }
 
     clearStoredTokens()
@@ -297,7 +299,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         variables: { allSessions: true }
       })
     } catch (error) {
-      console.error('Logout all sessions failed:', error)
+      import { logger } from '@/lib/logger'
+      logger.error('Logout all sessions failed:', error)
     }
 
     clearStoredTokens()
@@ -386,7 +389,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const switchWorkspace = async (workspaceId: string) => {
     // Implementation would involve updating user context with new workspace
     // This would typically require a separate API call
-    console.log('Switching to workspace:', workspaceId)
+    import { logger } from '@/lib/logger'
+    logger.info('Switching to workspace:', workspaceId)
   }
 
   const contextValue: AuthContextType = {

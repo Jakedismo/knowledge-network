@@ -163,7 +163,10 @@ export default function AuthDemoPage() {
                 </CardHeader>
                 <CardContent>
                   <SSOProviderList
-                    onProviderSelect={(provider) => console.log('Selected provider:', provider)}
+                    onProviderSelect={(provider) => {
+                      import { logger } from '@/lib/logger'
+                      logger.info('Selected provider:', provider)
+                    }}
                     title="Sign in with"
                   />
                 </CardContent>

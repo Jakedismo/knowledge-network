@@ -395,7 +395,8 @@ export class SessionService {
         await this.destroySession(sessionId);
       }
 
-      console.log(`Cleaned up ${expiredSessions.length} expired sessions`);
+    import { logger } from '@/lib/logger'
+    logger.info(`Cleaned up ${expiredSessions.length} expired sessions`);
     }, 15 * 60 * 1000); // 15 minutes
   }
 }

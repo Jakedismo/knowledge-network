@@ -266,6 +266,17 @@ export const MOVE_COLLECTION = gql`
   }
 `
 
+// Optional bulk reorder for collections. If the backend doesn't support this,
+// callers should fall back to multiple UPDATE_COLLECTION calls.
+export const REORDER_COLLECTIONS = gql`
+  mutation ReorderCollections($workspaceId: ID!, $orders: [CollectionOrderInput!]!) {
+    reorderCollections(workspaceId: $workspaceId, orders: $orders) {
+      id
+      sortOrder
+    }
+  }
+`
+
 // Tag Mutations
 export const CREATE_TAG = gql`
   mutation CreateTag($input: CreateTagInput!) {

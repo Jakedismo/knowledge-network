@@ -89,5 +89,5 @@ const server = Bun.serve<{ roomId?: string; token?: string }>({
   },
 })
 
-console.log(`[realtime] listening on ws://localhost:${PORT}${PATH}`)
-
+import { logger } from '@/lib/logger'
+logger.info(`[realtime] listening on ws://localhost:${PORT}${PATH}`)

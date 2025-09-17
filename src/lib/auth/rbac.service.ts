@@ -120,7 +120,8 @@ export class RBACService {
         details: `User ${userId} lacks permission for ${action} on ${resource}`
       };
     } catch (error) {
-      console.error('Permission check failed:', error);
+      import { logger } from '@/lib/logger'
+      logger.error('Permission check failed:', error);
       return {
         granted: false,
         reason: 'no_permission',

@@ -287,3 +287,4 @@ const WebSocketBot: React.FC<{ setOps: (n: number) => void; setAvgDuration: (n: 
 export const WebSocketTransport: Story = {
   render: () => <WebSocketDemo />,
 }
+/* eslint-disable no-console */

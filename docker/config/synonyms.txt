@@ -1,0 +1,88 @@
+# Synonyms for Knowledge Network Search
+# Format: term1, term2, term3 => canonical_term
+# or: term1, term2, term3 (bidirectional)
+
+# Programming languages
+js, javascript, ecmascript
+ts, typescript
+py, python
+rb, ruby
+rs, rust
+go, golang
+cs, csharp, c#
+
+# Common technical terms
+db, database
+api, application programming interface
+ui, user interface
+ux, user experience
+ci, continuous integration
+cd, continuous deployment, continuous delivery
+k8s, kubernetes
+auth, authentication, authorization
+config, configuration
+
+# Documentation terms
+doc, docs, documentation
+readme, read me
+guide, tutorial, walkthrough
+faq, frequently asked questions
+spec, specification
+
+# Version control
+git, version control
+pr, pull request, merge request
+ci/cd, continuous integration/continuous deployment
+
+# Cloud services
+aws, amazon web services
+gcp, google cloud platform
+azure, microsoft azure
+
+# Development terms
+dev, development, develop
+prod, production
+env, environment
+repo, repository
+dep, dependency, dependencies
+pkg, package
+lib, library
+fn, function
+var, variable
+const, constant
+prop, property
+param, parameter
+
+# Actions
+create, new, add, make
+delete, remove, del, rm
+update, edit, modify, change
+search, find, query, lookup
+list, show, display, get
+save, store, persist
+load, fetch, retrieve
+
+# Status terms
+wip, work in progress
+todo, to do
+done, complete, completed, finished
+active, enabled, on
+inactive, disabled, off
+draft, unpublished
+published, public, live
+
+# Common abbreviations
+e.g., for example
+i.e., that is
+etc, et cetera
+vs, versus
+
+# Domain specific terms (customize based on your domain)
+knowledge, article, document, content
+workspace, project, organization
+collection, folder, category
+tag, label, topic
+user, member, participant
+admin, administrator
+viewer, reader
+editor, writer, author

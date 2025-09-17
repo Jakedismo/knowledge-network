@@ -16,7 +16,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { REQUEST_PASSWORD_RESET, RESET_PASSWORD } from '@/lib/graphql/auth-mutations'
 import { logger } from '@/lib/logger'
-import { logger } from '@/lib/logger'
 
 // Validation schema
 const forgotPasswordSchema = z.object({

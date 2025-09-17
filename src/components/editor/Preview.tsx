@@ -160,7 +160,7 @@ export function Preview({ markdown, enableEmbeds = true }: PreviewProps) {
     return () => {
       cancelled = true
     }
-  }, [html])
+  }, [html, markdown])
 
   return (
     <div

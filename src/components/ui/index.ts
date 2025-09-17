@@ -101,3 +101,6 @@ export {
   FormMessage,
   FormField,
 } from './form'
+
+// Inputs
+export { Select } from './select'

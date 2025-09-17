@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { jwtService } from './jwt.service';
 import { sessionService } from './session.service';
 import { rbacService } from './rbac.service';
@@ -339,7 +340,7 @@ export function createSecurityMiddleware(config: SecurityConfig) {
 
       return response;
     } catch (error) {
-      console.error('Security middleware error:', error);
+      logger.error('Security middleware error:', error as any);
       return new NextResponse(
         JSON.stringify({ error: 'Security check failed' }),
         {
@@ -411,7 +412,7 @@ class SecurityAuditService {
     }
 
     // In production, send to logging service
-    console.log('Security Event:', auditEvent);
+    logger.info('Security Event:', auditEvent);
 
     // Alert on high severity events
     if (event.severity === 'high' || event.severity === 'critical') {
@@ -431,7 +432,7 @@ class SecurityAuditService {
 
   private sendAlert(event: SecurityEvent): void {
     // TODO: Implement alerting mechanism (email, Slack, etc.)
-    console.warn('Security Alert:', event);
+    logger.warn('Security Alert:', event);
   }
 }
 

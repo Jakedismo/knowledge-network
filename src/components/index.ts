@@ -11,3 +11,6 @@ export * from './editor'
 export * from './editor/api'
 export { EditorProvider } from './editor/EditorProvider'
 export { Editor } from './editor/Editor'
+
+// Organization (2C)
+export * as Organization from './organization'
