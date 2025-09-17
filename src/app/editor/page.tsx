@@ -1,12 +1,15 @@
 "use client"
 import React from 'react'
 import { Editor } from '@/components/editor'
+import { registerTemplateEditorPlugin } from '@/lib/templates/register-editor-plugin'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { TagManager, MetadataForm } from '@/components/organization'
 
 const ORG_UI = process.env.NEXT_PUBLIC_ORG_UI_ENABLED === '1'
 
 export default function EditorPage() {
+  // One-time registration of template toolbar plugin
+  registerTemplateEditorPlugin()
   const [tags, setTags] = React.useState<{ id: string; label: string }[]>([])
   const metadataFields = [
     { name: 'docType', label: 'Document Type', type: 'select', options: [{ label: 'Spec', value: 'spec' }, { label: 'Runbook', value: 'runbook' }], required: true },

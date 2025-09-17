@@ -1,4 +1,5 @@
 import { RegisteredPlugin, EditorPluginSpec } from './types'
+import type React from 'react'
 
 // Simple in-memory registry. Can be swapped for Zustand/store later.
 export class PluginRegistry {
@@ -60,4 +61,3 @@ export class PluginRegistry {
 }
 
 export const globalPluginRegistry = new PluginRegistry()
-

@@ -250,6 +250,8 @@ model KnowledgeVersion {
   contentDelta   Json?    @map("content_delta")
   changeSummary  String?  @map("change_summary")
   diffData       Json?    @map("diff_data") // Computed diff from previous version
+  branchName     String   @default("main") @map("branch_name")
+  parentVersionId String? @map("parent_version_id")
   createdAt      DateTime @default(now()) @map("created_at")
 
   // Foreign Keys
@@ -263,6 +265,44 @@ model KnowledgeVersion {
   @@unique([knowledgeId, versionNumber])
   @@index([knowledgeId])
   @@map("knowledge_versions")
+}
+
+// Template marketplace publication metadata
+enum TemplateVisibility {
+  PRIVATE
+  WORKSPACE
+  PUBLIC
+  UNLISTED
+}
+
+enum TemplateStatus {
+  DRAFT
+  PUBLISHED
+  DEPRECATED
+}
+
+model TemplateListing {
+  id           String   @id @default(cuid())
+  templateId   String   @map("template_id")
+  workspaceId  String   @map("workspace_id")
+  creatorId    String   @map("creator_id")
+  visibility   TemplateVisibility @default(PRIVATE)
+  status       TemplateStatus     @default(DRAFT)
+  title        String
+  description  String?
+  categories   String[] @default([])
+  tags         String[] @default([])
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  template     Knowledge @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator      User      @relation(fields: [creatorId], references: [id])
+
+  @@index([workspaceId])
+  @@index([visibility, status])
+  @@map("template_listings")
 }
 
 model Comment {

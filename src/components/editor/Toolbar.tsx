@@ -20,6 +20,7 @@ import {
   ModalTitle,
 } from '../ui/modal'
 import { useEditor } from './EditorProvider'
+import { globalPluginRegistry } from '@/lib/editor/registry'
 
 type ToolbarProps = {
   textareaRef: React.RefObject<HTMLTextAreaElement>
@@ -187,6 +188,11 @@ export function Toolbar({ textareaRef, onAnnounce }: ToolbarProps) {
           <TabsTrigger value="preview" aria-label="Preview"><Eye className="mr-2 h-4 w-4" />Preview</TabsTrigger>
         </TabsList>
       </Tabs>
+
+      {/* Plugin toolbar contributions */}
+      {globalPluginRegistry.getActiveToolbars().map((T, i) => (
+        <T key={`plugin-toolbar-${i}`} />
+      ))}
 
       <Modal open={linkModalOpen} onOpenChange={setLinkModalOpen}>
         <ModalContent>
