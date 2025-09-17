@@ -8,6 +8,14 @@ export const typeDefs = gql`
   scalar DateTime
   scalar JSON
   scalar Upload
+  
+  # Collaboration WS Token (documented for future GraphQL support)
+  type CollaborationWsToken {
+    url: String!
+    token: String!
+    expiresAt: DateTime!
+    roomId: ID!
+  }
 
   # Enums
   enum UserRole {
@@ -571,6 +579,9 @@ export const typeDefs = gql`
     endCollaboration(knowledgeId: ID!): Boolean!
     updateCollaborationCursor(knowledgeId: ID!, cursorPos: JSON!): CollaborationSession!
     sendCollaborationEvent(input: CollaborationEventInput!): Boolean!
+    
+    # Collaboration WS token (implemented via REST in Phase 2B)
+    getCollaborationWsToken(knowledgeId: ID!): CollaborationWsToken!
 
     # AI mutations
     generateKnowledgeSummary(knowledgeId: ID!): String!

@@ -12,7 +12,7 @@ export type CoreTextWasm = {
 
 export async function loadCoreWasm(): Promise<CoreTextWasm | null> {
   try {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // eslint-disable-next-line
     // @ts-ignore - runtime dynamic import
     const wasm = await import('../../../../packages/kn-editor-core/pkg/kn_editor_core.js')
     return wasm
@@ -20,4 +20,3 @@ export async function loadCoreWasm(): Promise<CoreTextWasm | null> {
     return null
   }
 }
-

@@ -1,4 +1,5 @@
 "use client"
+/* eslint-disable react/no-unescaped-entities */
 
 import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -14,6 +15,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { REQUEST_PASSWORD_RESET, RESET_PASSWORD } from '@/lib/graphql/auth-mutations'
+import { logger } from '@/lib/logger'
+import { logger } from '@/lib/logger'
 
 // Validation schema
 const forgotPasswordSchema = z.object({
@@ -38,7 +41,7 @@ export function ForgotPasswordForm({ onBackToLogin }: ForgotPasswordFormProps) {
       setIsSuccess(true)
     },
     onError: (error) => {
-      console.error('Password reset request failed:', error)
+      logger.error('Password reset request failed:', error)
     }
   })
 
@@ -67,7 +70,7 @@ export function ForgotPasswordForm({ onBackToLogin }: ForgotPasswordFormProps) {
           variables: { email: submittedEmail }
         })
       } catch (err) {
-        console.error('Resend failed:', err)
+        logger.error('Resend failed:', err)
       }
     }
   }
@@ -252,7 +255,7 @@ export function ResetPasswordForm({ token, onSuccess }: ResetPasswordFormProps) 
       onSuccess?.()
     },
     onError: (error) => {
-      console.error('Password reset failed:', error)
+      logger.error('Password reset failed:', error)
     }
   })
 

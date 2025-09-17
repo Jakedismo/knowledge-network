@@ -1,3 +1,7 @@
+import type { EditorModel } from '@/lib/editor/model'
+import type { TokenIndexer } from '@/lib/editor/token-index'
+import type { CollaborationProvider } from '@/lib/editor/collaboration/provider'
+
 export type EditorContentFormat = "markdown" | "html";
 
 export interface EditorExportOptions {
@@ -16,6 +20,17 @@ export interface EditorContextValue {
   api: EditorAPI;
   registerPlugin: (plugin: EditorPlugin) => void;
   unregisterPlugin: (name: string) => void;
+  setTextareaRef?: (el: HTMLTextAreaElement | null) => void;
+  model: EditorModel;
+  tokenIndexer: TokenIndexer | null;
+  collaborationProvider: CollaborationProvider | null;
+  setCollaborationProvider?: (provider: CollaborationProvider | null) => void;
+  collaborationStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
+  setCollaborationStatus?: (status: 'disconnected' | 'connecting' | 'connected' | 'error') => void;
+  onCommentAction?: (commentId: string) => void;
+  onMentionAction?: (mentionId: string) => void;
+  setCommentAction?: (handler: (commentId: string) => void) => void;
+  setMentionAction?: (handler: (mentionId: string) => void) => void;
 }
 
 export type EditorPlugin = {

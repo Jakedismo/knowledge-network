@@ -426,6 +426,17 @@ export const SEND_COLLABORATION_EVENT = gql`
   }
 `
 
+export const GET_COLLABORATION_WS_TOKEN = gql`
+  mutation GetCollaborationWsToken($knowledgeId: ID!) {
+    getCollaborationWsToken(knowledgeId: $knowledgeId) {
+      url
+      token
+      expiresAt
+      roomId
+    }
+  }
+`
+
 // AI Mutations
 export const GENERATE_KNOWLEDGE_SUMMARY = gql`
   mutation GenerateKnowledgeSummary($knowledgeId: ID!) {

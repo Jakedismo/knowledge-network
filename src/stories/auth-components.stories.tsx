@@ -342,7 +342,7 @@ export const DesignSystemIntegration: Story = {
             <div className="text-2xl font-bold">Sign in to your account</div>
             <div className="text-muted-foreground">Enter your email and password to access your workspace</div>
             <div className="text-sm font-medium">Email address</div>
-            <div className="text-xs text-muted-foreground">We'll never share your email with anyone else.</div>
+            <div className="text-xs text-muted-foreground">We&apos;ll never share your email with anyone else.</div>
           </CardContent>
         </Card>
 
@@ -396,3 +396,4 @@ export const DesignSystemIntegration: Story = {
     </div>
   ),
 }
+/* eslint-disable react/no-unescaped-entities */

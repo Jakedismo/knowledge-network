@@ -28,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { UPDATE_USER, CHANGE_PASSWORD } from '@/lib/graphql/auth-mutations'
+import { logger } from '@/lib/logger'
 import { useAuth } from '@/lib/auth/auth-context'
 
 // Profile update schema
@@ -159,7 +160,7 @@ export function UserProfile({ onClose }: UserProfileProps) {
         }
       })
     } catch (error) {
-      console.error('Profile update failed:', error)
+      logger.error('Profile update failed:', error)
     }
   }
 
@@ -175,7 +176,7 @@ export function UserProfile({ onClose }: UserProfileProps) {
         }
       })
     } catch (error) {
-      console.error('Password change failed:', error)
+      logger.error('Password change failed:', error)
     }
   }
 

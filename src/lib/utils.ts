@@ -122,13 +122,14 @@ export function highlightText(text: string, searchTerms: string[]): string {
   return highlighted
 }
 
+import { logger } from '@/lib/logger'
+
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text)
     return true
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('Failed to copy to clipboard:', err)
+    logger.error('Failed to copy to clipboard:', err)
     return false
   }
 }

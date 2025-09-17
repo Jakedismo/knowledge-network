@@ -1,4 +1,9 @@
 import { escapeHtml } from "./escape";
+import {
+  sanitizeTwitterUrl,
+  sanitizeVimeoUrl,
+  sanitizeYouTubeUrl,
+} from "@/lib/editor/sanitizers";
 
 export type MarkdownParseOptions = {
   enableEmbeds?: boolean;
@@ -16,9 +21,9 @@ function parseInline(md: string): string {
   // Inline code `code`
   s = s.replace(/`([^`]+?)`/g, "<code>$1</code>");
   // Links [text](https://...)
-  s = s.replace(/\[([^\]]+?)\]\((https?:[^\)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1<\/a>');
+  s = s.replace(/\[([^\]]+?)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
   // Images ![alt](https://...)
-  s = s.replace(/!\[([^\]]*?)\]\((https?:[^\)\s]+|blob:[^\)\s]+|data:[^\)\s]+)\)/g, '<img alt="$1" src="$2" />');
+  s = s.replace(/!\[([^\]]*?)\]\((https?:[^)\s]+|blob:[^)\s]+|data:[^)\s]+)\)/g, '<img alt="$1" src="$2" />');
   return s;
 }
 
@@ -73,7 +78,7 @@ export function markdownToHtml(md: string, opts: MarkdownParseOptions = {}): str
   const lines = input.split("\n");
   while (i < lines.length) {
     const line = lines[i]!;
-    if (/^```/.test(line)) {
+    if (line.startsWith("```")) {
       const start = i;
       i++;
       while (i < lines.length && !/^```/.test(lines[i]!)) i++;
@@ -85,7 +90,7 @@ export function markdownToHtml(md: string, opts: MarkdownParseOptions = {}): str
       continue;
     }
     // Latex block $$
-    if (/^\$\$/.test(line)) {
+    if (line.startsWith("$$")) {
       const start = i;
       i++;
       while (i < lines.length && !/^\$\$/.test(lines[i]!)) i++;
@@ -145,19 +150,49 @@ export function markdownToHtml(md: string, opts: MarkdownParseOptions = {}): str
 
 // Basic auto-embed for YouTube, Vimeo, Twitter URLs present on their own line
 function autoEmbed(html: string): string {
-  return html
-    .replace(
-      /<p>(https?:\/\/www\.youtube\.com\/watch\?v=([\w-]{6,}))<\/p>/g,
-      (_m, url: string, id: string) =>
-        `<div class="embed youtube"><iframe src="https://www.youtube.com/embed/${id}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen title="YouTube video"></iframe></div>`
-    )
-    .replace(
-      /<p>(https?:\/\/vimeo\.com\/(\d+))<\/p>/g,
-      (_m, _url: string, id: string) =>
-        `<div class="embed vimeo"><iframe src="https://player.vimeo.com/video/${id}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen title="Vimeo video"></iframe></div>`
-    )
-    .replace(
-      /<p>(https?:\/\/x\.com\/(\w+)\/status\/(\d+))<\/p>/g,
-      (_m, url: string) => `<blockquote class="tweet">${escapeHtml(url)}</blockquote>`
-    );
+  return html.replace(/<p>(https?:\/\/[^<]+)<\/p>/g, (_match, rawUrl: string) => {
+    const url = rawUrl.trim()
+    const yt = sanitizeYouTubeUrl(url)
+    if (yt) {
+      return `
+<div class="embed youtube">
+  <iframe
+    src="${yt}"
+    title="YouTube video"
+    loading="lazy"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowfullscreen
+    referrerpolicy="strict-origin-when-cross-origin"
+    sandbox="allow-scripts allow-same-origin allow-presentation"
+  ></iframe>
+</div>`.trim()
+    }
+
+    const vimeo = sanitizeVimeoUrl(url)
+    if (vimeo) {
+      return `
+<div class="embed vimeo">
+  <iframe
+    src="${vimeo}"
+    title="Vimeo video"
+    loading="lazy"
+    allow="autoplay; fullscreen; picture-in-picture"
+    allowfullscreen
+    referrerpolicy="strict-origin-when-cross-origin"
+    sandbox="allow-scripts allow-same-origin allow-presentation"
+  ></iframe>
+</div>`.trim()
+    }
+
+    const tweet = sanitizeTwitterUrl(url)
+    if (tweet) {
+      const safe = escapeHtml(tweet)
+      return `
+<figure class="embed tweet">
+  <a href="${safe}" target="_blank" rel="noopener noreferrer">View post on X</a>
+</figure>`.trim()
+    }
+
+    return `<p>${escapeHtml(url)}</p>`
+  })
 }

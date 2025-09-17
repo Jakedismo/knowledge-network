@@ -19,12 +19,14 @@ Status: Draft for Phase 2A kickoff (targets ≥8.5/10 quality)
 - Text storage: Rope (chunked balanced string) with 2–8KB leaf chunks.
   - JS fallback: `RopeText` (piecewise chunks) for immediate integration.
   - WASM core: Rust crate `kn-editor-core` using `ropey` (or custom) compiled to WebAssembly via `wasm-bindgen`.
-- Decorations/token spans: interval tree over UTF-16 offsets; recompute only affected regions on edits.
-- Selections/cursors: gap buffers per selection; render virtualization for many cursors.
+- Editor model: `EditorModel` wraps the rope, maintains cached text + block segmentation, exposes diff-based updates and snapshots for React. Decorations can target whole blocks or inline ranges (converted to `<span data-decoration-type>` for mentions, presence highlights, etc.).
+- Blocks: Markdown segmented on double-newline boundaries, each with hash + gap metadata for targeted re-rendering.
+- Decorations/token spans: interval tree over UTF-16 offsets; recompute only affected regions on edits (future work).
+- Selections/cursors: gap buffers per selection; render virtualization for many cursors (next increment).
 
 ## Rendering Strategy
-- Block-based rendering: split document into logical blocks (paragraphs / code blocks). Only diff/render impacted blocks.
-- Virtualization for very long documents: window ~2–4 screens, overscan 1 screen; anchor lines to preserve scroll position.
+- Block-based rendering: split document into logical blocks (paragraphs / code blocks). React renders per-block `<div>` using cached HTML keyed by block hash.
+- Viewport virtualization: `PreviewBlocks` uses `useVirtualList` + live block height sampling to render only visible blocks (overscan=6) once documents exceed ~80 blocks or 20k characters.
 - Compose events: throttle layout-affecting updates with `requestAnimationFrame` and microtasks; avoid sync layouts.
 
 ## Real-time Collaboration Prep
@@ -32,10 +34,15 @@ Status: Draft for Phase 2A kickoff (targets ≥8.5/10 quality)
 - Operation format: position-based + lamport clock for OT interop; map to CRDT insert/delete on client.
 - Conflict resolution: use CRDT semantics; deterministic merge; compact ops in background.
 - Network: batch ops at 50–100ms; coalesce idle flush; backpressure safeguards.
+- Adapter: `YjsEditorAdapter` bridges `EditorModel` with a `Y.Text` instance; local changes diff against CRDT state, remote deltas apply via `model.replaceRange`.
+- Local transport scaffold: `BroadcastCollaborationProvider` uses `BroadcastChannel` for same-device collaboration + presence; `useCollaboration(roomId, presence)` auto-falls back to this when WebSocket is unavailable.
+- WebSocket transport: `WebSocketCollaborationProvider` connects to `NEXT_PUBLIC_COLLAB_WS_URL` (or explicit `url`) with optional auth token (`NEXT_PUBLIC_COLLAB_TOKEN` or prop). Reconnect/backoff and status callbacks keep UI informed; broadcast fallback ensures resilience when the backend service is offline.
+- Editor context exposes `collaborationStatus` (`connecting`, `connected`, `disconnected`, `error`) so UI can surface connection badges.
 
 ## Indexing & Search Prep
 - Incremental inverted index (in-memory) over token IDs → positions, per block.
-- Persisted/global search delegated to ElasticSearch (Phase 2D). Provide hooks to emit index updates on block commits.
+- `TokenIndexer` spawns `tokenizer.worker.ts` (browser only) to process block snapshots asynchronously and emits index updates.
+- Persisted/global search delegated to ElasticSearch (Phase 2D). Hooks in `EditorProvider` emit block-level deltas through TokenIndexer for Search Swarm 2D.
 - Tokenization strategy: streaming tokenizer (WASM-capable) yielding tokens + offsets; debounce on burst edits.
 
 ## WASM Modules
@@ -66,9 +73,9 @@ Status: Draft for Phase 2A kickoff (targets ≥8.5/10 quality)
 - WASM toolchain not present in CI → provide JS fallback; compile step optional.
 - Text encoding mismatches (UTF-16 vs UTF-8) → centralize mapping APIs.
 - GC spikes with large strings → rope chunking and object pooling.
+- Block re-segmentation clears cached decorations; collaboration layer must rehydrate decorations after structural edits.
 
 ## Success Criteria
 - Smoke benches pass on 10k-word docs.
 - No long tasks > 50ms on edit interactions in dev traces.
 - Quality gate performance targets met; A11y unaffected.
-

@@ -27,6 +27,7 @@ import {
   type LinkedAccount
 } from '@/lib/graphql/auth-mutations'
 import { useAuth } from '@/lib/auth/auth-context'
+import { logger } from '@/lib/logger'
 
 // OAuth provider configuration
 interface OAuthProvider {
@@ -323,7 +324,7 @@ export function AccountLinking({
       }
     },
     onError: (error) => {
-      console.error('Account linking failed:', error)
+      logger.error('Account linking failed:', error)
       setLinkingProvider(null)
     }
   })
@@ -336,7 +337,7 @@ export function AccountLinking({
       }
     },
     onError: (error) => {
-      console.error('Account unlinking failed:', error)
+      logger.error('Account unlinking failed:', error)
       setUnlinkingProvider(null)
     }
   })

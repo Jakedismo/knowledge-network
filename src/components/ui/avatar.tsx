@@ -2,6 +2,7 @@ import * as React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/cn'
 import { User } from 'lucide-react'
+import Image from 'next/image'
 
 const avatarVariants = cva(
   'relative inline-flex items-center justify-center overflow-hidden rounded-full font-medium',
@@ -118,11 +119,13 @@ const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
         {...props}
       >
         {src && !imageError ? (
-          <img
+          <Image
             src={src}
             alt={alt}
+            fill
+            sizes="48px"
             onError={() => setImageError(true)}
-            className="h-full w-full object-cover"
+            className="object-cover"
           />
         ) : (
           renderFallback()

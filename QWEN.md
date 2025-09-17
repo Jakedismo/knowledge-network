@@ -25,9 +25,31 @@
 
 - If you're working on UX development leverage playwright-mcp server tools, always when making changes to UI take screenshots and analyse the changes and iterate based on your analysis.
 - If you're working setting up a React project for development always configure bun and oxlint
+- If you're developing a web application always compare would react or qwik be a better option in light of the necessary features
 - If you're working on setting up a Python project for development always configure environment using UV
 - If you're working on a TUI application always use Charm ecosystem
 - If you're working on a Next.JS application always use Next.JS version 15+
 - If you're working on a React application always leverage component libraries newer build components yourself
 - If you're working on a web application always mobile first design, minimum 3 browser compatibility
 - If you're working on a web application always implement a design system with proper light/dark mode configurations and proper integrations
+- if you're working with TailwindCSS always use version 7+
+- If you're working on a backend application always use Elysia
+- If you're working on Model-Context-Protocol clients or servers always use official SKDs and newest protocol versions and always build both stdio and streamable http protocol capability and always build optional oAuth or API key based authentication
+- If you're building AI features always build agents, newer use only conversation APIs if possible. Use OpenAI Agents SDK as a starting point. Always use gpt-5 family models gpt-5, gpt-5-mini, gpt-5-nano or gpt-5-codex for the agents.
+- If you're building AI features that use gpt-5 keep in mind they can generate images and that user can use images as input not just text or audio
+- If you're building prompts for agents that use gpt-5 always study gpt-5 prompt engineering before implementing a prompt using websearch
+- If you're bulding with OpenAI Agents SDK always design so that prompts can be dynamic (functions) and that agents can use other agents as tools
+- If you're building multi-step, multi-agent systems always build so that conversation history is preserved accross agents as necessary and that they correctly use the OpenAI Agents SDK handoff mechanims
+- If you're building with OpenAI Agents SDK always study how tools are to be developed and used properly by the agents with Context7
+- If you're Agents need Model-Context-Protocol servers always build a easy to use interface for users to add and enable/disable MCP servers newer only code-based configurations
+- If you're building Model-Context-Protocol interface features always build so that MCP-configurations are loaded from seperate files not directly written in code
+- If you're building AI agents always define system prompts and instructions in seperate files newer as part of the code
+- If you're building AI features always build Audio interfaces using official SDKs
+- If you're building applications that have AI features always design the application from the AI user experience point of view, true AI native design from the ground-up
+- If you're building AI features try to always use streaming interfaces when possible
+- If you're building AI features always design and implement so that the user clearly knows they're using an AI powered features
+
+## General Debugging guidelines
+
+- If you start development servers always run them in ports starting from 3005 upwards
+- NEVER kill services running in port 3001, it's used by Ouroboros MCP-server

@@ -49,6 +49,18 @@ enum CommentStatus {
   ARCHIVED
 }
 
+enum CollaborationUpdateKind {
+  DOCUMENT
+  AWARENESS
+  SYSTEM
+}
+
+enum CollaborationSnapshotReason {
+  SCHEDULED
+  USER_REQUEST
+  RECOVERY
+}
+
 // Core Tables
 model User {
   id           String     @id @default(cuid())
@@ -299,6 +311,7 @@ model CollaborationSession {
   lastSeen  DateTime @default(now()) @map("last_seen")
   cursorPos Json?    @map("cursor_position") // Editor cursor position
   selection Json?    @map("selection_range") // Text selection range
+  clientVersion String? @map("client_version")
   createdAt DateTime @default(now()) @map("created_at")
 
   // Foreign Keys
@@ -308,11 +321,83 @@ model CollaborationSession {
   // Relations
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  updates   CollaborationUpdate[]
+  presences CollaborationPresence[]
 
   @@unique([userId, knowledgeId])
   @@index([knowledgeId])
   @@index([isActive])
+  @@index([knowledgeId, isActive])
   @@map("collaboration_sessions")
+}
+
+model CollaborationUpdate {
+  id             String                    @id @default(cuid())
+  knowledgeId    String                    @map("knowledge_id")
+  sessionId      String?                   @map("session_id")
+  userId         String                    @map("user_id")
+  kind           CollaborationUpdateKind   @default(DOCUMENT)
+  update         Bytes
+  size           Int                       @map("byte_size")
+  lamport        Int?                      @map("lamport_clock")
+  metadata       Json                      @default("{}")
+  transport      String                    @default("ws")
+  latencyMs      Int?                      @map("latency_ms")
+  versionPointer Int?                      @map("version_pointer")
+  createdAt      DateTime                  @default(now()) @map("created_at")
+
+  knowledge Knowledge           @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  session   CollaborationSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  user      User                 @relation(fields: [userId], references: [id])
+
+  @@index([knowledgeId, createdAt(sort: Desc)])
+  @@index([sessionId])
+  @@index([userId])
+  @@unique([knowledgeId, lamport], map: "collab_updates_lamport_unique")
+  @@map("collaboration_updates")
+}
+
+model CollaborationSnapshot {
+  id             String                      @id @default(cuid())
+  knowledgeId    String                      @map("knowledge_id")
+  version        Int                         @default(1)
+  checksum       String
+  state          Bytes
+  size           Int                          @map("byte_size")
+  reason         CollaborationSnapshotReason @default(SCHEDULED)
+  metadata       Json                        @default("{}")
+  createdAt      DateTime                    @default(now()) @map("created_at")
+  createdBy      String?                     @map("created_by")
+  lastUpdateId   String?                     @map("last_update_id")
+
+  knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  author    User?     @relation("CollaborationSnapshotAuthor", fields: [createdBy], references: [id])
+  update    CollaborationUpdate? @relation(fields: [lastUpdateId], references: [id], onDelete: SetNull)
+
+  @@unique([knowledgeId, version])
+  @@index([knowledgeId, createdAt(sort: Desc)])
+  @@map("collaboration_snapshots")
+}
+
+model CollaborationPresence {
+  id          String   @id @default(cuid())
+  knowledgeId String   @map("knowledge_id")
+  userId      String   @map("user_id")
+  sessionId   String?  @map("session_id")
+  state       Json     @default("{}")
+  expiresAt   DateTime @map("expires_at")
+  lastSeen    DateTime @default(now()) @map("last_seen")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  knowledge Knowledge           @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session   CollaborationSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@unique([knowledgeId, userId])
+  @@index([expiresAt])
+  @@index([sessionId])
+  @@map("collaboration_presence")
 }
 
 // Analytics and Activity Tracking

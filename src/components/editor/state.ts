@@ -15,7 +15,8 @@ export const useEditorStore = create<EditorState>()(
     (set) => ({
       content: '',
       mode: 'write',
-      setContent: (value) => set({ content: value }),
+      setContent: (value) =>
+        set((state) => (state.content === value ? state : { content: value })),
       setMode: (mode) => set({ mode }),
     }),
     {
@@ -25,4 +26,3 @@ export const useEditorStore = create<EditorState>()(
     }
   )
 )
-

@@ -1,6 +1,8 @@
 "use client"
+/* eslint-disable react/no-unescaped-entities */
 
 import React, { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -32,6 +34,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
+import { logger } from '@/lib/logger'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
@@ -80,7 +83,7 @@ export function TwoFactorSetup() {
           setQrCodeUrl(qrCode)
           setStep('verify')
         } catch (error) {
-          console.error('Failed to generate QR code:', error)
+          logger.error('Failed to generate QR code:', error)
         }
       }
     },
@@ -256,7 +259,7 @@ export function TwoFactorSetup() {
               <h3 className="font-medium">Scan QR Code</h3>
               {qrCodeUrl && (
                 <div className="flex justify-center">
-                  <img src={qrCodeUrl} alt="2FA QR Code" className="border rounded-lg" />
+                  <Image src={qrCodeUrl} alt="2FA QR Code" width={192} height={192} className="border rounded-lg h-auto w-auto" />
                 </div>
               )}
               <p className="text-sm text-muted-foreground">

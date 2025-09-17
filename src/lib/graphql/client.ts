@@ -1,15 +1,12 @@
 import { ApolloClient, InMemoryCache, createHttpLink, from } from '@apollo/client'
+import { logger } from '@/lib/logger'
 import { setContext } from '@apollo/client/link/context'
 import { onError } from '@apollo/client/link/error'
-// import { createUploadLink } from 'apollo-upload-client'
 
 // GraphQL endpoint configuration
 const httpLink = createHttpLink({
   uri: process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql',
 })
-
-// Upload link for file uploads (using httpLink for now)
-const uploadLink = httpLink
 
 // Authentication link
 const authLink = setContext((_, { headers }) => {
@@ -34,10 +31,7 @@ const authLink = setContext((_, { headers }) => {
 const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) => {
   if (graphQLErrors) {
     graphQLErrors.forEach(({ message, locations, path, extensions }) => {
-      // eslint-disable-next-line no-console
-      console.error(
-        `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`
-      )
+      logger.error(`[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`)
 
       // Handle authentication errors
       if (extensions?.code === 'UNAUTHENTICATED') {
@@ -50,8 +44,7 @@ const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) 
   }
 
   if (networkError) {
-    // eslint-disable-next-line no-console
-    console.error(`[Network error]: ${networkError}`)
+    logger.error(`[Network error]: ${networkError}`)
 
     // Handle network errors
     if (networkError.message.includes('401')) {
@@ -139,8 +132,7 @@ export const apolloClient = new ApolloClient({
   link: from([
     errorLink,
     authLink,
-    // Use upload link for mutations that might include files
-    uploadLink,
+    httpLink,
   ]),
   cache,
   defaultOptions: {
@@ -171,8 +163,7 @@ export const getAuthenticatedUser = () => {
     const payload = JSON.parse(atob(parts[1]))
     return payload
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Error parsing auth token:', error)
+    logger.error('Error parsing auth token:', error)
     localStorage.removeItem('auth-token')
     return null
   }
