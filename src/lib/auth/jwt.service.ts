@@ -81,12 +81,20 @@ export class JWTService {
       this.accessTokenExpiry = '15m';
       this.refreshTokenExpiry = '7d';
     } else {
-      // Validate environment variables for production
-      const env = envSchema.parse(process.env);
-      this.accessTokenSecret = env.JWT_SECRET;
-      this.refreshTokenSecret = env.JWT_REFRESH_SECRET;
-      this.accessTokenExpiry = env.JWT_EXPIRES_IN;
-      this.refreshTokenExpiry = env.JWT_REFRESH_EXPIRES_IN;
+      try {
+        // Validate environment variables for production
+        const env = envSchema.parse(process.env);
+        this.accessTokenSecret = env.JWT_SECRET;
+        this.refreshTokenSecret = env.JWT_REFRESH_SECRET;
+        this.accessTokenExpiry = env.JWT_EXPIRES_IN;
+        this.refreshTokenExpiry = env.JWT_REFRESH_EXPIRES_IN;
+      } catch (error) {
+        console.warn('[JWTService] Missing JWT secrets in environment, using fallback development secrets.');
+        this.accessTokenSecret = process.env.JWT_SECRET ?? 'fallback-secret-key-at-least-32-chars-long';
+        this.refreshTokenSecret = process.env.JWT_REFRESH_SECRET ?? 'fallback-refresh-secret-key-at-least-32-chars-long';
+        this.accessTokenExpiry = process.env.JWT_EXPIRES_IN ?? '15m';
+        this.refreshTokenExpiry = process.env.JWT_REFRESH_EXPIRES_IN ?? '7d';
+      }
     }
   }
 

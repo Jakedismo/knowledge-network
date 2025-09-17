@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 export interface Role {
   id: string;
@@ -120,7 +121,6 @@ export class RBACService {
         details: `User ${userId} lacks permission for ${action} on ${resource}`
       };
     } catch (error) {
-      import { logger } from '@/lib/logger'
       logger.error('Permission check failed:', error);
       return {
         granted: false,

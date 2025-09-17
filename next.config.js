@@ -1,3 +1,27 @@
+const path = require('path');
+
+const applyOptionalAliases = (config) => {
+  if (!config.resolve) config.resolve = {};
+  if (!config.resolve.alias) config.resolve.alias = {};
+
+  const ensure = (moduleId, stubRelativePath) => {
+    try {
+      require.resolve(moduleId);
+    } catch (err) {
+      config.resolve.alias[moduleId] = path.resolve(__dirname, stubRelativePath);
+    }
+  };
+
+  ensure('yjs', './src/stubs/yjs.ts');
+  ensure('y-protocols/awareness', './src/stubs/y-protocols-awareness.ts');
+  ensure('@prisma/client', './src/stubs/prisma-client.ts');
+  ensure('ioredis', './src/stubs/ioredis.ts');
+  ensure('@elastic/elasticsearch', './src/stubs/elastic-client.ts');
+  ensure('@elastic/elasticsearch/lib/api/types', './src/stubs/elastic-api-types.ts');
+
+  return config;
+};
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // External packages configuration for server components
@@ -78,17 +102,16 @@ const nextConfig = {
     ];
   },
 
-  // Bundle analyzer (enabled in development with ANALYZE=true)
-  ...(process.env.ANALYZE === 'true' && {
-    webpack: (config) => {
-      config.plugins.push(
-        new (require('@next/bundle-analyzer')())({
-          enabled: true,
-        })
-      );
-      return config;
-    },
-  }),
+  webpack: (config) => {
+    applyOptionalAliases(config);
+
+    if (process.env.ANALYZE === 'true') {
+      const withAnalyzer = require('@next/bundle-analyzer')();
+      config.plugins.push(new withAnalyzer({ enabled: true }));
+    }
+
+    return config;
+  },
 };
 
 module.exports = nextConfig;

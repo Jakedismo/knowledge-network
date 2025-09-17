@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useReducer, ReactNode } from 'react'
 import { useMutation, useQuery } from '@apollo/client'
 import { useRouter } from 'next/navigation'
+import { logger } from '@/lib/logger'
 import {
   LOGIN,
   LOGOUT,
@@ -236,8 +237,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         await refreshTokens()
       } catch (error) {
-        import { logger } from '@/lib/logger'
-        logger.error('Token refresh failed:', error)
+        logger.error?.('Token refresh failed:', error)
         logout()
       }
     }, 14 * 60 * 1000) // Refresh every 14 minutes
@@ -284,8 +284,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await logoutMutation()
     } catch (error) {
       // Continue with logout even if server request fails
-      import { logger } from '@/lib/logger'
-      logger.error('Logout request failed:', error)
+      logger.error?.('Logout request failed:', error)
     }
 
     clearStoredTokens()
@@ -299,8 +298,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         variables: { allSessions: true }
       })
     } catch (error) {
-      import { logger } from '@/lib/logger'
-      logger.error('Logout all sessions failed:', error)
+      logger.error?.('Logout all sessions failed:', error)
     }
 
     clearStoredTokens()
@@ -389,8 +387,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const switchWorkspace = async (workspaceId: string) => {
     // Implementation would involve updating user context with new workspace
     // This would typically require a separate API call
-    import { logger } from '@/lib/logger'
-    logger.info('Switching to workspace:', workspaceId)
+    logger.info?.('Switching to workspace:', workspaceId)
   }
 
   const contextValue: AuthContextType = {

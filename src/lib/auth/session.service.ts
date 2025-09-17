@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { logger } from '@/lib/logger'
 
 export interface Session {
   id: string;
@@ -395,8 +396,7 @@ export class SessionService {
         await this.destroySession(sessionId);
       }
 
-    import { logger } from '@/lib/logger'
-    logger.info(`Cleaned up ${expiredSessions.length} expired sessions`);
+      logger.info?.(`Cleaned up ${expiredSessions.length} expired sessions`);
     }, 15 * 60 * 1000); // 15 minutes
   }
 }

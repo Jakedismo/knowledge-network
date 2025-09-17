@@ -67,7 +67,7 @@ export function TemplateBuilder() {
             <Input id="tpl-desc" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
           <div>
-            <Label htmlFor="tpl-content">Content (Markdown with {{variables}})</Label>
+            <Label htmlFor="tpl-content">Content (Markdown with {'{{ variables }}'})</Label>
             <Textarea id="tpl-content" value={content} onChange={(e) => setContent(e.target.value)} rows={14} />
           </div>
           {error ? <div className="text-sm text-red-600" role="alert">{error}</div> : null}

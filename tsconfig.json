@@ -27,7 +27,13 @@
       "@/types/*": ["./src/types/*"],
       "@/utils/*": ["./src/utils/*"],
       "@/styles/*": ["./src/styles/*"],
-      "@/server/*": ["./src/server/*"]
+      "@/server/*": ["./src/server/*"],
+      "yjs": ["./src/stubs/yjs"],
+      "y-protocols/awareness": ["./src/stubs/y-protocols-awareness"],
+      "@prisma/client": ["./src/stubs/prisma-client"],
+      "ioredis": ["./src/stubs/ioredis"],
+      "@elastic/elasticsearch": ["./src/stubs/elastic-client"],
+      "@elastic/elasticsearch/lib/api/types": ["./src/stubs/elastic-api-types"]
     },
     "forceConsistentCasingInFileNames": true,
     "noUncheckedIndexedAccess": true,

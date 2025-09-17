@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { ApolloProvider, InMemoryCache, ApolloClient } from '@apollo/client'
+import { logger } from '@/lib/logger'
 
 import {
   LoginForm,
@@ -164,8 +165,7 @@ export default function AuthDemoPage() {
                 <CardContent>
                   <SSOProviderList
                     onProviderSelect={(provider) => {
-                      import { logger } from '@/lib/logger'
-                      logger.info('Selected provider:', provider)
+                      logger.info?.('Selected provider:', provider)
                     }}
                     title="Sign in with"
                   />

@@ -231,38 +231,85 @@ Architecture Guild: architect + architecture-reviewer + senior specialists
 
 ## General Workflow guidelines
 
-- If you're working on UX development leverage playwright-mcp server tools, always when making changes to UI take screenshots and analyse the changes and iterate based on your analysis.
-- If you're working setting up a React project for development always configure bun and oxlint
+### Guidelines for Go projects
+
 - If you're working on a setting up Go project for development always setup golangci-lint for linting
-- If you're working on setting up a Python project for development always configure environment using UV
-- If you're developing a web application always compare would react or qwik be a better option in light of the necessary features
-- If you're working on a TUI application always use Charm ecosystem
+- If you're building a backend with Go always use Chi for HTTP Framework/Router
+- If you're building a backend with Go always use connectRPC for RPC & client generation
+- If you're building a frontend with Go always use Templ and HTMX
+- if you're building a frontend with Go and it needs authentication always use Ory Kratos and Casbin
+- If you're building a frontend with Go and need static components always use templ + templUI
+- If you're building a frontend with Go and need dynamic and real-time components always use Vugu
+
+### Guidelines for Web Application projects
+
+- If you're working setting up a React project for development always configure bun and oxlint
+- If you're working a web application always compare would react or qwik be a better option in light of the necessary features
 - If you're working on a Next.JS application always use Next.JS version 15+
-- if you're working with TailwindCSS always use version 7+
+- if you're working with TailwindCSS always use version 4+
 - If you're working on a backend application always use Elysia
+- If the project uses Elysia always use Eden for syncing client and server types
+- If the project uses Elysia always use plugins for features when possible
 - If you're working on a React application always leverage component libraries newer build components yourself
 - If you're working on a web application always mobile first design, minimum 3 browser compatibility
 - If you're working on a web application always implement a design system with proper light/dark mode configurations and proper integration
+- Always use Node 20+
+
+### Guidelines for Python projects
+
+- If you're working on setting up a Python project for development always configure environment using UV
+- If you're working on a Python project always use Ruff for linting
+- If you're working on a Python API project always use FastAPI
+- If you're working on a Python project always use Python 3.12 and UV
+
+### Guidelines for TUI applications
+
+- If you're working on a TUI application always use Charm ecosystem
+- If the project is built on React always use Ink.js
+- Never build features yourself that are available as Ink.js plugins or Charm ecosystem components
+
+### Guidelines for Model-Context-Porotocol projects
+
 - If you're working on Model-Context-Protocol clients or servers always use official SKDs and newest protocol versions and always build both stdio and streamable http protocol capability and always build optional oAuth or API key based authentication
+
+### Guidelines for development workflows
+
+- If you're working on UX development leverage playwright-mcp server tools, always when making changes to UI take screenshots and analyse the changes and iterate based on your analysis
+- Always generate a handoff document when your task is done
+
+### Guidelines for AI project/feature development
+
 - If you're building AI features always build agents, newer use only conversation APIs if possible. Use OpenAI Agents SDK as a starting point. Always use gpt-5 family models gpt-5, gpt-5-mini, gpt-5-nano or gpt-5-codex for the agents.
 - If you're building AI features that use gpt-5 keep in mind they can generate images and that user can use images as input not just text or audio
 - If you're building prompts for agents that use gpt-5 always study gpt-5 prompt engineering before implementing a prompt using websearch
 - If you're bulding with OpenAI Agents SDK always design so that prompts can be dynamic (functions) and that agents can use other agents as tools
-- If you're building multi-step, multi-agent systems always build so that conversation history is preserved accross agents as necessary and that they correctly use the OpenAI Agents SDK handoff mechanims
+- If you're building multi-step, multi-agent systems always build so that conversation history is preserved across agents as necessary and that they correctly use the OpenAI Agents SDK handoff mechanims
 - If you're building with OpenAI Agents SDK always study how tools are to be developed and used properly by the agents with Context7
-- If you're Agents need Model-Context-Protocol servers always build a easy to use interface for users to add and enable/disable MCP servers newer only code-based configurations
+- If the OpenAI Agents need Model-Context-Protocol servers always build a easy to use interface for users to add and enable/disable MCP servers, newer do only code-based configurations
 - If you're building Model-Context-Protocol interface features always build so that MCP-configurations are loaded from seperate files not directly written in code
 - If you're building AI agents always define system prompts and instructions in seperate files newer as part of the code
 - If you're building AI features always build Audio interfaces using official SDKs
 - If you're building applications that have AI features always design the application from the AI user experience point of view, true AI native design from the ground-up
 - If you're building AI features try to always use streaming interfaces when possible
-- If you're building AI features always design and implement so that the user clearly knows they're using an AI powered features
-- Always generate a handoff document when your task is done
+- If you're building AI features always design and implement so that the user clearly knows they're using an AI powered feature
+
+## Guidelines for UX/UI development
+
+- If you’re working on a React/Next project, always use the latest stable TailwindCSS (v4+) for styling, treating utility classes & design tokens as the source of truth.
+- If you’re setting up routes or pages in Next.js, prefer Server Components by default; mark things “use client” only where interactivity is strictly needed.
+- If you’re working to improve web performance, always measure Core Web Vitals (LCP ≤ 2.5s, INP ≤ 200ms, CLS ≤ 0.1) and build with tactics that support them.  ￼
+- If you’re configuring images/fonts/assets, always use Next.js built-in features like <Image> optimization, next/font, preloading, and reserve space for images to avoid layout shift.  ￼
+- If you’re adding UI components, always use accessible, headless primitives (e.g. Radix Primitives) so semantics, keyboard navigation, focus management, ARIA etc. are solid from the start.  ￼
+- If you’re integrating third-party scripts or external resources, always load non-critical ones lazily (or defer), and minimise runtime/bundle for initial load.
+- If you’re implementing navigation (links, transitions), always prefetch on hover/viewport for anticipated routes and avoid delays in UI transitions.
+- If you’re writing forms & input flows, always include inline validation, accessible labels, error states, proper focus handling, and avoid blocking or janky UX.
+- If you’re designing for theming (dark mode, custom themes), always treat themes as first-class, use CSS variables or Tailwind theme tokens so color/light/dark are consistent and toggleable without hacks.
+- If you’re performing audits or CI checks, always include performance budgets / Web Vitals gating and accessibility checks so regressions are caught early.
 
 ## General document generation guidelines
 
 - When generating documentation always place them in docs directory in project root in a well organised logical structure
-- When creating architecture diagrams in SVG or HTML always use the project design system colours if one is available
+- When creating architecture diagrams use SVG or interactive HTML format, always use the project design system colours if one is available
 - When creating stakeholder level documentation always include a stakeholder summary and make diagrams story driven with a logical flow of features/motions and produce in interactive HTML
 - When creating README.md files and other documentation for the end-user include ASCII diagrams and detailed step-by-step instrutions for starting the application locally
 - When creating interactive HTML documents keep them concice, story driven and effective make versions for different levels of audience: stakeholders, technical architects, developers and investors
@@ -271,3 +318,7 @@ Architecture Guild: architect + architecture-reviewer + senior specialists
 
 - If you start development servers always run them in ports starting from 3005 upwards
 - NEVER kill services running in port 3001, it's used by Ouroboros MCP-server
+
+## UX/UI Design guidelines
+
+- If you're tasked with designing and implementing a user interface always generate Figma compatible design files and design system that can be imported directly to Figma in docs/figma directory
