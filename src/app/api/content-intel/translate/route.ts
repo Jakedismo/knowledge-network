@@ -1,12 +1,19 @@
 import { NextResponse } from 'next/server'
 import { detectLanguage } from '@/server/modules/content-intel/tokenize'
 import { LocalTranslator } from '@/server/modules/content-intel/translate'
+function requireBasicAuth(req: Request): Response | null {
+  const userId = req.headers.get('x-user-id')
+  if (!userId) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  return null
+}
 import type { LanguageCode } from '@/server/modules/content-intel/types'
 
 const translator = new LocalTranslator()
 
 export async function POST(req: Request) {
   try {
+    const unauth = requireBasicAuth(req)
+    if (unauth) return unauth
     const body = (await req.json()) as { content?: string; target?: LanguageCode; languageHint?: LanguageCode }
     if (!body?.content || typeof body.content !== 'string') return NextResponse.json({ error: 'content required' }, { status: 400 })
     if (!body?.target) return NextResponse.json({ error: 'target required' }, { status: 400 })
@@ -17,4 +24,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: e?.message || 'Bad Request' }, { status: 400 })
   }
 }
-

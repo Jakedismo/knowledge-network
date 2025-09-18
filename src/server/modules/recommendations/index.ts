@@ -8,4 +8,6 @@ export * from './gaps'
 export * from './duplicates'
 export * from './experts'
 export * from './related'
-
+export * from './service'
+export * from './data-source'
+export * from './registry'

@@ -9,9 +9,7 @@ export async function runWithAgentsSDK(input: AgentInvokeInput): Promise<AgentIn
     Agent = (mod as any).Agent
     run = (mod as any).run
   } catch (err) {
-    throw new Error(
-      "Agents SDK not installed. Install '@openai/agents' and 'zod@<=3.25.67' to enable this path."
-    )
+    throw new Error("Agents SDK not installed. Install '@openai/agents' to enable this path.")
   }
 
   const agent = new Agent({
@@ -37,4 +35,3 @@ export async function runWithAgentsSDK(input: AgentInvokeInput): Promise<AgentIn
     usage: undefined,
   }
 }
-

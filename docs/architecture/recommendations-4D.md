@@ -34,6 +34,12 @@ Non-goals (per brief): No chatbot, no external AI service wiring, no heavy conte
 - Providers: `related.ts` exposes an `EmbeddingProvider` interface for future injection (Phase 4 AI infra).
 - Config: Weighting and half-life are parameters in `RecommendationOptions` and detection functions.
 
+## API & UI Integration (Phase 4D wiring)
+
+- API routes (`/api/recommendations/*`) expose personalized, trending, gaps, experts, related, duplicates, and event recording endpoints with zod validation + JWT enforcement (demo bypass via `?demo=1`).
+- In-memory data source seeds deterministic demo corpus (`registry.ts`, `demo-data.ts`) for local testing; swap by implementing `RecommendationDataSource`.
+- Server-rendered showcase at `/recommendations` pulls directly from `RecommendationService` to highlight "For you", trending, gaps, experts, and duplicate clusters.
+
 ## Quality
 
 - Strict TypeScript with `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess` respected in module.
@@ -44,4 +50,3 @@ Non-goals (per brief): No chatbot, no external AI service wiring, no heavy conte
 
 - Backend TS Architect: See `docs/api/recommendations-contract.md` for data feeds and service boundary.
 - Rust Systems Expert: Leverage existing search vectors when available; for batch jobs, MinHash and trending windows are CPU-cache friendly and can be parallelized if moved to a service.
-

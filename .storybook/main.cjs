@@ -10,7 +10,7 @@ module.exports = {
     '@storybook/addon-a11y'
   ],
   framework: {
-    name: '@storybook/react',
+    name: '@storybook/react-webpack5',
     options: {},
   },
   staticDirs: ['../public'],

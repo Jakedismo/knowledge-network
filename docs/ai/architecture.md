@@ -73,7 +73,7 @@ OPENAI_ORG_ID=   # optional
 AI_DEFAULT_MODEL=gpt-5-mini
 AI_REQUEST_TIMEOUT_MS=60000
 AI_RPM=30
-AI_ENGINE=completions  # use 'agents' to switch to Agents SDK (Node 22+ recommended)
+AI_ENGINE=agents  # use 'completions' to switch to standard client
 ```
 
 ## Agent-to-Agent Patterns
@@ -84,7 +84,7 @@ Guideline: prefer async streaming (`SSE`) for long-running tasks; use `traceId` 
 
 ## Runtime Notes
 
-- Agents SDK requires Node.js 22+ (stable) and `@openai/agents` with `zod <= 3.25.67`. Non-Agents path works with current runtime via standard OpenAI client.
+- Agents engine requires installing `@openai/agents`. The completions engine works with the standard OpenAI client (or the shipped stub in dev/test without network).
 
 ## Non-Goals (Phase 4A)
 

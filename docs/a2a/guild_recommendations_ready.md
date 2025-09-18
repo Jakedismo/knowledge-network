@@ -10,6 +10,8 @@ Summary:
 - Near-duplicates: MinHash-based clustering with deterministic hashes.
 - Experts: engagement-weighted expertise per tag and overall per author.
 - Related content: cosine on `searchVector` if present; lexical fallback otherwise.
+- API routes `/api/recommendations/*` wired with zod validation + JWT guard (demo bypass via `?demo=1`).
+- Demo UI at `/recommendations` surfaces for-you, trending, gaps, experts, duplicates.
 
 Backend coordination:
 - See `docs/api/recommendations-contract.md` for proposed endpoints and inputs.
@@ -20,4 +22,3 @@ Next steps:
 - Wire API routes to surface module outputs; enforce RBAC filtering.
 - Optionally stream events into a compact store; evaluate Redis or Postgres.
 - If/when embeddings are available, populate `IndexDocument.searchVector`.
-

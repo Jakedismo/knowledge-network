@@ -5,6 +5,12 @@ export const metadata: Metadata = {
   description: 'Knowledge Network Dashboard - Centralized hub for all your knowledge management needs',
 }
 
+import dynamic from 'next/dynamic'
+
+const AssistantEnabled = process.env.NEXT_PUBLIC_ASSISTANT_ENABLED === 'true'
+const ChatPanel = dynamic(() => import('@/components/assistant/ChatPanel').then(m => m.ChatPanel), { ssr: false })
+const FactCheckBadge = dynamic(() => import('@/components/assistant/FactCheckBadge').then(m => m.FactCheckBadge), { ssr: false })
+
 export default function HomePage() {
   return (
     <div className="container mx-auto py-8">
@@ -67,6 +73,20 @@ export default function HomePage() {
             <StatusItem label="CI/CD Pipeline" status="Pending" />
           </div>
         </div>
+
+        {AssistantEnabled && (
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="rounded-lg border bg-card p-6">
+              <h2 className="text-xl font-semibold mb-3">Assistant Chat</h2>
+              <ChatPanel />
+            </div>
+            <div className="rounded-lg border bg-card p-6">
+              <h2 className="text-xl font-semibold mb-3">Quick Fact Check</h2>
+              <p className="text-sm text-muted-foreground mb-2">Try checking a common claim:</p>
+              <FactCheckBadge claim="All documents always include an owner field" />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

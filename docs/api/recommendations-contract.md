@@ -33,6 +33,13 @@ Scope: Data contracts and service boundaries for algorithms in `src/server/modul
 - GET /api/recommendations/related?id={knowledgeId}&workspace={id}
   - returns: `Scored<IndexDocument>[]`
 
+- GET /api/recommendations/duplicates?workspace={id}
+  - returns: `DuplicateSet[]`
+
+- POST /api/recommendations/events
+  - body: `ActivityEvent` payload (timestamp optional; defaults to now)
+  - returns: persisted event for audit/backfill
+
 ## Storage & Metrics (non-binding)
 
 - Events retention: 30–90 days hot, 1y cold
@@ -43,4 +50,3 @@ Scope: Data contracts and service boundaries for algorithms in `src/server/modul
 
 - Access control: filter by user permissions; do not emit items user cannot access
 - PII: none required beyond `userId`; avoid storing free-text queries unless anonymized
-

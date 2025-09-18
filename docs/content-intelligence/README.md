@@ -4,6 +4,8 @@ Scope: Auto‑tagging, summarization, concepts/entities, readability & quality s
 
 ## APIs (Next.js Routes)
 
+- Auth: Requires workspace context and permission `document:create` (via `x-user-id` and `x-workspace-id` headers or JWT).
+
 - POST `/api/content-intel/analyze`
   - Body: `{ content: string, title?: string, workspaceId?: string, maxSummarySentences?: number, maxTags?: number, languageHint?: 'en'|'es'|..., targetLanguage?: 'es'|... }`
   - Response: `AnalyzeResult` with fields: `summary, keywords[{term,score}], tags[string[]], entities[{type,text,start,end}], concepts[string[]], readability{...}, quality{score,signals{...}}, sentiment{score,comparative,positive[],negative[]}, language{language,confidence}, translation?{language,content}`
@@ -48,4 +50,3 @@ Scope: Auto‑tagging, summarization, concepts/entities, readability & quality s
 
 - Add remote translators and model‑backed summarizers via provider interfaces; respect org policy and secrets via env.
 - Add language‑specific stopword sets and tokenizers as needed.
-
