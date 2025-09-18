@@ -1,6 +1,6 @@
 "use client"
-import { useMemo, useState } from 'react'
-import { createAssistantProvider } from '@/lib/assistant/provider'
+import { useState } from 'react'
+import { useAssistantRuntime } from '@/lib/assistant/runtime-context'
 
 interface FactCheckBadgeProps {
   claim: string
@@ -8,13 +8,15 @@ interface FactCheckBadgeProps {
 }
 
 export function FactCheckBadge({ claim, documentId }: FactCheckBadgeProps) {
-  const provider = useMemo(() => createAssistantProvider(), [])
+  const { provider, context: baseContext } = useAssistantRuntime()
   const [status, setStatus] = useState<'idle' | 'running' | 'done'>('idle')
   const [result, setResult] = useState<string>('')
 
   async function run() {
     setStatus('running')
-    const res = await provider.factCheck({ claim, documentId })
+    const payload: Parameters<typeof provider.factCheck>[0] = { claim, context: baseContext }
+    if (documentId) payload.documentId = documentId
+    const res = await provider.factCheck(payload)
     const icon = res.finding.status === 'supported' ? '✅' : res.finding.status === 'contradicted' ? '⚠️' : '❓'
     setResult(`${icon} ${res.finding.status}`)
     setStatus('done')

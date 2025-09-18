@@ -1,17 +1,23 @@
 "use client"
-import { useMemo, useState } from 'react'
-import { createAssistantProvider } from '@/lib/assistant/provider'
+import { useState } from 'react'
+import { useAssistantRuntime } from '@/lib/assistant/runtime-context'
 import type { ResearchRequest } from '@/lib/assistant/types'
 
 export function ResearchPanel() {
-  const provider = useMemo(() => createAssistantProvider(), [])
+  const { provider, context: baseContext } = useAssistantRuntime()
   const [query, setQuery] = useState('')
   const [scope, setScope] = useState<ResearchRequest['scope']>('both')
   const [items, setItems] = useState<any[]>([])
+  const [busy, setBusy] = useState(false)
 
   async function run() {
-    const res = await provider.research({ query, scope, maxItems: 4 })
-    setItems(res.items)
+    setBusy(true)
+    try {
+      const res = await provider.research({ query, scope, maxItems: 4, context: baseContext })
+      setItems(res.items)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -41,6 +47,7 @@ export function ResearchPanel() {
           Search
         </button>
       </div>
+      {busy && <p className="text-xs text-muted-foreground">Gathering insights…</p>}
       {items.length > 0 && (
         <ul className="space-y-2">
           {items.map((it) => (

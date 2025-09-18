@@ -11,6 +11,7 @@ import type {
   TranscriptionResult,
   ContextHelpRequest,
   ContextHelpItem,
+  AssistantContext,
 } from './types'
 
 function iso(date: Date) {
@@ -40,7 +41,7 @@ export class MockAssistantProvider implements AssistantProvider {
         { id: deterministicId('a:' + id), role: 'assistant', content: reply, createdAt: now },
       ],
       citations: turn.context?.documentId
-        ? [{ id: turn.context.documentId, title: 'Current Document', url: undefined }]
+        ? [{ id: turn.context.documentId, title: 'Current Document' }]
         : [],
     }
   }
@@ -60,21 +61,22 @@ export class MockAssistantProvider implements AssistantProvider {
     const status: FactCheckResponse['finding']['status'] = input.claim.toLowerCase().includes('always')
       ? 'uncertain'
       : 'supported'
-    return {
+    const response: FactCheckResponse = {
       claim: input.claim,
       finding: {
         status,
-        evidence: input.documentId
-          ? [
-              {
-                id: input.documentId,
-                title: 'Current Document',
-                snippet: 'Evidence matched from the active document.',
-              },
-            ]
-          : undefined,
       },
     }
+    if (input.documentId) {
+      response.finding.evidence = [
+        {
+          id: input.documentId,
+          title: 'Current Document',
+          snippet: 'Evidence matched from the active document.',
+        },
+      ]
+    }
+    return response
   }
 
   async research(req: ResearchRequest): Promise<ResearchResponse> {
@@ -91,7 +93,7 @@ export class MockAssistantProvider implements AssistantProvider {
     return { items }
   }
 
-  async transcribe(input: { fileName: string; bytes: Uint8Array }): Promise<TranscriptionResult> {
+  async transcribe(input: { fileName: string; bytes: Uint8Array; context?: AssistantContext }): Promise<TranscriptionResult> {
     // Deterministic mock: echo filename and produce two action items
     const base = input.fileName.replace(/\.[a-zA-Z0-9]+$/, '')
     return {
@@ -119,4 +121,3 @@ export class MockAssistantProvider implements AssistantProvider {
     ]
   }
 }
-

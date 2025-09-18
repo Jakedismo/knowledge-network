@@ -14,15 +14,18 @@ export interface ChatMessage {
 export interface ChatTurn {
   input: string
   context?: AssistantContext
+  history?: Array<{ role: Exclude<AssistantRole, 'system'>; content: string }>
 }
 
 export interface AssistantContext {
-  userId?: string
-  workspaceId?: string
-  selectionText?: string
-  documentId?: string
-  route?: string
-  tags?: string[]
+  userId?: string | undefined
+  workspaceId?: string | undefined
+  selectionText?: string | undefined
+  documentId?: string | undefined
+  route?: string | undefined
+  pageTitle?: string | undefined
+  collectionId?: string | undefined
+  tags?: string[] | undefined
 }
 
 export interface ChatResponse {
@@ -43,7 +46,8 @@ export interface SuggestionsResponse {
 
 export interface FactCheckClaim {
   claim: string
-  documentId?: string
+  documentId?: string | undefined
+  context?: AssistantContext
 }
 
 export interface FactCheckFinding {
@@ -60,6 +64,7 @@ export interface ResearchRequest {
   query: string
   scope: 'internal' | 'external' | 'both'
   maxItems?: number
+  context?: AssistantContext
 }
 
 export interface ResearchItem {
@@ -81,8 +86,9 @@ export interface TranscriptionResult {
 }
 
 export interface ContextHelpRequest {
-  route?: string
-  selectionText?: string
+  route?: string | undefined
+  selectionText?: string | undefined
+  tags?: string[] | undefined
 }
 
 export interface ContextHelpItem {
@@ -96,11 +102,10 @@ export interface AssistantProvider {
   suggest(input: { text: string; context?: AssistantContext }): Promise<SuggestionsResponse>
   factCheck(input: FactCheckClaim): Promise<FactCheckResponse>
   research(input: ResearchRequest): Promise<ResearchResponse>
-  transcribe(input: { fileName: string; bytes: Uint8Array }): Promise<TranscriptionResult>
+  transcribe(input: { fileName: string; bytes: Uint8Array; context?: AssistantContext }): Promise<TranscriptionResult>
   contextHelp(input: ContextHelpRequest): Promise<ContextHelpItem[]>
 }
 
 export interface AssistantProviderOptions {
   mode: 'mock' | 'agents' | 'mcp'
 }
-

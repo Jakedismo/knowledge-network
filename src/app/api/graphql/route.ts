@@ -102,6 +102,24 @@ async function resolveGraphQL(query: string, variables: any = {}) {
   return { data: {} }
 }
 
+const ALLOWED_HEADERS = [
+  'Content-Type',
+  'Authorization',
+  'apollo-require-preflight',
+  'apollo-client-name',
+  'apollo-client-version',
+]
+
+function withCors(request: NextRequest, response: NextResponse) {
+  const origin = request.headers.get('origin') ?? '*'
+  response.headers.set('Access-Control-Allow-Origin', origin)
+  response.headers.set('Access-Control-Allow-Credentials', 'true')
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  response.headers.set('Access-Control-Allow-Headers', ALLOWED_HEADERS.join(', '))
+  response.headers.set('Vary', 'Origin')
+  return response
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -110,39 +128,48 @@ export async function POST(request: NextRequest) {
     // Simple GraphQL processing
     const result = await resolveGraphQL(query, variables)
 
-    return NextResponse.json(result)
+    return withCors(request, NextResponse.json(result))
   } catch (error) {
     console.error('GraphQL error:', error)
-    return NextResponse.json(
+    return withCors(
+      request,
+      NextResponse.json(
       {
         errors: [{
           message: error instanceof Error ? error.message : 'GraphQL execution error'
         }]
       },
-      { status: 500 }
+        { status: 500 },
+      ),
     )
   }
 }
 
 export async function GET(request: NextRequest) {
   // GraphQL Playground or introspection
-  return NextResponse.json({
-    data: {
-      __schema: {
-        types: []
-      }
-    }
-  })
+  return withCors(
+    request,
+    NextResponse.json({
+      data: {
+        __schema: {
+          types: [],
+        },
+      },
+    }),
+  )
 }
 
 // Handle OPTIONS for CORS
 export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('origin') ?? '*'
   return new NextResponse(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Credentials': 'true',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': ALLOWED_HEADERS.join(', '),
+      Vary: 'Origin',
     },
   })
 }

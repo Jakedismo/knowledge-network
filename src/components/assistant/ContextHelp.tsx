@@ -1,14 +1,18 @@
 "use client"
-import { useMemo, useState } from 'react'
-import { createAssistantProvider } from '@/lib/assistant/provider'
+import { useState } from 'react'
+import { useAssistantRuntime } from '@/lib/assistant/runtime-context'
 
 export function ContextHelp({ route, selectionText }: { route?: string; selectionText?: string }) {
-  const provider = useMemo(() => createAssistantProvider(), [])
+  const { provider, context: baseContext } = useAssistantRuntime()
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<{ id: string; title: string; body: string }[]>([])
 
   async function load() {
-    const res = await provider.contextHelp({ route, selectionText })
+    const payload: Parameters<typeof provider.contextHelp>[0] = {}
+    if (route) payload.route = route
+    if (selectionText) payload.selectionText = selectionText
+    if (baseContext.tags) payload.tags = baseContext.tags
+    const res = await provider.contextHelp(payload)
     setItems(res)
     setOpen((v) => !v)
   }

@@ -3,10 +3,13 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Menu, X, Search, Bell, User, ChevronRight, Plus } from 'lucide-react'
+import { Menu, X, Search, Bell, User, ChevronRight, Plus, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useMediaQuery } from '@/hooks/use-media-query'
+import { AssistantDock } from '@/components/assistant/AssistantDock'
+import { useAssistantRuntime } from '@/lib/assistant/runtime-context'
+import type { AssistantContext } from '@/lib/assistant/types'
 import {
   primaryNavigation,
   secondaryNavigation,
@@ -21,21 +24,29 @@ interface AppLayoutProps {
   showSidebar?: boolean
   showBreadcrumbs?: boolean
   showHeader?: boolean
+  assistantContext?: Partial<AssistantContext>
 }
 
 export function AppLayout({
   children,
   showSidebar = true,
   showBreadcrumbs = true,
-  showHeader = true
+  showHeader = true,
+  assistantContext,
 }: AppLayoutProps) {
   const pathname = usePathname()
   const isMobile = useMediaQuery('(max-width: 768px)')
   const isTablet = useMediaQuery('(max-width: 1024px)')
+  const { mergeContext } = useAssistantRuntime()
 
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
   const [expandedItems, setExpandedItems] = React.useState<string[]>([])
+
+  const openAssistantDock = React.useCallback(() => {
+    if (typeof window === 'undefined') return
+    window.dispatchEvent(new CustomEvent('assistant:toggle', { detail: { open: true } }))
+  }, [])
 
   // Auto-expand active parent items
   React.useEffect(() => {
@@ -78,9 +89,24 @@ export function AppLayout({
     return pathname.startsWith(item.path)
   }
 
-  const breadcrumbs = React.useMemo(() => {
-    return getBreadcrumbs(pathname)
-  }, [pathname])
+  const breadcrumbs = React.useMemo(() => getBreadcrumbs(pathname), [pathname])
+  const pageTitle = React.useMemo(
+    () => (breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].label : undefined),
+    [breadcrumbs]
+  )
+  const assistantContextKey = React.useMemo(
+    () => (assistantContext ? JSON.stringify(assistantContext) : ''),
+    [assistantContext]
+  )
+
+  React.useEffect(() => {
+    mergeContext({ route: pathname, pageTitle })
+  }, [mergeContext, pathname, pageTitle])
+
+  React.useEffect(() => {
+    if (!assistantContextKey) return
+    mergeContext(assistantContext as AssistantContext)
+  }, [assistantContextKey, assistantContext, mergeContext])
 
   const renderNavItem = (item: NavItem, level = 0) => {
     const isActive = isItemActive(item)
@@ -199,6 +225,12 @@ export function AppLayout({
                   </kbd>
                 </Button>
               )}
+
+              {/* Copilot trigger */}
+              <Button variant="ghost" size="sm" className="hidden sm:flex items-center gap-2" onClick={openAssistantDock}>
+                <Sparkles className="h-4 w-4 text-primary" />
+                Copilot
+              </Button>
 
               {/* Notifications */}
               <Button variant="ghost" size="icon" className="relative">
@@ -368,6 +400,8 @@ export function AppLayout({
           <div className="h-safe-area-inset-bottom" />
         </nav>
       )}
+
+      <AssistantDock />
     </div>
   )
 }

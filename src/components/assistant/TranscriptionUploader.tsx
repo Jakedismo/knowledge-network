@@ -1,9 +1,9 @@
 "use client"
-import { useMemo, useState } from 'react'
-import { createAssistantProvider } from '@/lib/assistant/provider'
+import { useState } from 'react'
+import { useAssistantRuntime } from '@/lib/assistant/runtime-context'
 
 export function TranscriptionUploader() {
-  const provider = useMemo(() => createAssistantProvider(), [])
+  const { provider, context: baseContext } = useAssistantRuntime()
   const [summary, setSummary] = useState<string>('')
   const [items, setItems] = useState<{ id: string; text: string; owner?: string; due?: string }[]>([])
   const [busy, setBusy] = useState(false)
@@ -11,7 +11,7 @@ export function TranscriptionUploader() {
   async function onFile(file: File) {
     const bytes = new Uint8Array(await file.arrayBuffer())
     setBusy(true)
-    const res = await provider.transcribe({ fileName: file.name, bytes })
+    const res = await provider.transcribe({ fileName: file.name, bytes, context: baseContext })
     setSummary(res.summary || '')
     setItems(res.actionItems)
     setBusy(false)

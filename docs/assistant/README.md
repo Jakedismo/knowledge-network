@@ -6,24 +6,29 @@ Scope: UI and provider-agnostic interfaces only. No AI infra, embeddings, or mod
 
 ## Deliverables in this commit
 
-- Assistant service contracts and provider factory: `src/lib/assistant/{types.ts,provider.ts}`
+- Assistant runtime and provider contracts: `src/lib/assistant/{types.ts,provider.ts}`
 - Deterministic mock provider: `src/lib/assistant/mockProvider.ts`
-- UI components:
+- Shared React runtime:
+  - Context provider + hooks: `src/lib/assistant/runtime-context.tsx`
+  - Global dock experience: `src/components/assistant/AssistantDock.tsx`
+- Feature surfaces (reused by the dock and feature demos):
   - Chat panel: `src/components/assistant/ChatPanel.tsx`
-  - Fact check badge: `src/components/assistant/FactCheckBadge.tsx`
   - Research panel: `src/components/assistant/ResearchPanel.tsx`
   - Meeting transcription uploader: `src/components/assistant/TranscriptionUploader.tsx`
-  - Context-aware help popover: `src/components/assistant/ContextHelp.tsx`
-  - Editor suggestions panel (selection-based): `src/components/editor/plugins/AssistantSuggestions.tsx`
-- Demo route: `/assistant` → `src/app/assistant/page.tsx`
-- Editor demo integration (sidebar suggestions): `src/app/editor-demo/page.tsx`
+  - Context-aware help: `src/components/assistant/ContextHelp.tsx`
+  - Fact-check helpers: `src/components/assistant/FactCheckBadge.tsx`
+  - Editor suggestions (selection-based): `src/components/editor/plugins/AssistantSuggestions.tsx`
+- App integration points:
+  - Dock injection in layout: `src/components/layout/AppLayout.tsx`
+  - Assistant overview route: `src/app/assistant/page.tsx`
 - Storybook stories: `src/stories/Assistant.stories.tsx`
 - Unit tests (mock determinism): `src/components/assistant/__tests__/assistant.mock.test.tsx`
 
 ## Usage
 
-- Visit `/assistant` for chat, research, transcription, and fact-check demos.
-- Visit `/editor-demo` to see the suggestions sidebar update based on selection.
+- Launch the copilot dock from the header shortcut or floating action on any page.
+- `/assistant` now documents the integrated experience instead of hosting a stand-alone playground.
+- `/editor-demo` still showcases inline suggestions; the dock mirrors the same context.
 - Stories available under `Assistant/*` in Storybook.
 
 ## Provider integration
@@ -49,6 +54,12 @@ Streaming (optional):
 - Set `NEXT_PUBLIC_ASSISTANT_STREAM=true` to enable streaming in ChatPanel (SSE via POST to `/api/ai/execute`).
 
 Provider interface is defined by `AssistantProvider` in `src/lib/assistant/types.ts`.
+
+### Runtime context
+
+- `AssistantRuntimeProvider` (see `src/lib/assistant/runtime-context.tsx`) keeps a single provider instance and propagates shared context (route, selection text, document id, tags, etc.).
+- Components can call `useAssistantRuntime()` to access the provider, current context, and mutators (`mergeContext`, `clearContext`).
+- Global consumers emit `assistant:toggle` to open/close the dock without prop drilling.
 
 ## Accessibility
 

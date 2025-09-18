@@ -121,15 +121,6 @@ export const primaryNavigation: NavItem[] = [
     ],
   },
   {
-    id: 'assistant',
-    label: 'AI Assistant',
-    path: '/assistant',
-    icon: Sparkles,
-    position: 'primary',
-    badge: 'AI',
-    shortcut: 'Cmd+I',
-  },
-  {
     id: 'collaboration',
     label: 'Collaboration',
     path: '/collaboration',
@@ -238,13 +229,6 @@ export const quickActions = [
     path: '/search',
     icon: Search,
     shortcut: 'Cmd+K',
-  },
-  {
-    id: 'ai-chat',
-    label: 'AI Chat',
-    path: '/assistant',
-    icon: Sparkles,
-    shortcut: 'Cmd+I',
   },
 ]
 

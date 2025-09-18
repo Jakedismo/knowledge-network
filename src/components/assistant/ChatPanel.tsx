@@ -1,7 +1,7 @@
 "use client"
-import { useCallback, useMemo, useRef, useState } from 'react'
-import { createAssistantProvider } from '@/lib/assistant/provider'
-import type { ChatMessage } from '@/lib/assistant/types'
+import { useCallback, useRef, useState } from 'react'
+import { useAssistantRuntime } from '@/lib/assistant/runtime-context'
+import type { AssistantContext, ChatMessage } from '@/lib/assistant/types'
 
 interface ChatPanelProps {
   documentId?: string
@@ -9,7 +9,7 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
-  const provider = useMemo(() => createAssistantProvider(), [])
+  const { provider, context: baseContext } = useAssistantRuntime()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const formRef = useRef<HTMLFormElement>(null)
@@ -25,10 +25,19 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
         { id: `u:${now}`, role: 'user', content: input, createdAt: now },
         { id: `a:${now}`, role: 'assistant', content: '', createdAt: now },
       ])
+      const context = mergeContext(baseContext, { documentId, selectionText })
+      const history = messages.map((m): { role: 'user' | 'assistant'; content: string } => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: m.content,
+      }))
       const resp = await fetch('/api/ai/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: { question: input, context: { documentId, selectionText } }, stream: true }),
+        body: JSON.stringify({
+          capability: 'chat',
+          input: { question: input, context, history },
+          stream: true,
+        }),
         signal: controller.signal,
       })
       if (!resp.ok || !resp.body) {
@@ -63,10 +72,15 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
       setInput('')
       return
     }
-    const res = await provider.chat({ input, context: { documentId, selectionText } })
+    const context = mergeContext(baseContext, { documentId, selectionText })
+    const history = messages.map((m): { role: 'user' | 'assistant'; content: string } => ({
+      role: m.role === 'assistant' ? 'assistant' : 'user',
+      content: m.content,
+    }))
+    const res = await provider.chat({ input, context, history })
     setMessages((prev) => [...prev, ...res.messages])
     setInput('')
-  }, [input, provider, documentId, selectionText, streaming])
+  }, [input, provider, baseContext, documentId, selectionText, streaming, messages])
 
   return (
     <div className="flex h-full w-full flex-col rounded-lg border bg-background">
@@ -119,3 +133,10 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
 }
 
 export default ChatPanel
+
+function mergeContext(base: AssistantContext, overrides: { documentId?: string; selectionText?: string }): AssistantContext {
+  const next: AssistantContext = { ...base }
+  if (overrides.documentId && overrides.documentId.trim()) next.documentId = overrides.documentId
+  if (overrides.selectionText && overrides.selectionText.trim()) next.selectionText = overrides.selectionText
+  return next
+}

@@ -5,6 +5,7 @@
 - Normalized CTA patterns to rely on the shared `buttonVariants` helper instead of nesting `<Button asChild>` constructs, preventing runtime hydration warnings and aligning with accessibility rules.
 - Repaired the profile layout to use the project avatar compound component without missing exports, resolving the dev-server build break.
 - Added Playwright navigation coverage to verify every primary route renders and to capture updated UI snapshots for design sign-off.
+- Implemented a resilient template gallery fallback so the Templates page surfaces curated entries even without the Prisma-powered API.
 
 ## Key Assets
 - `src/app/knowledge/page.tsx`

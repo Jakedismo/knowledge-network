@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
@@ -36,6 +37,24 @@ const quickStarts = [
 ]
 
 export default function NewDocumentPage() {
+  const [assistantDraft, setAssistantDraft] = useState<null | {
+    title: string
+    summary?: string
+    transcript: string
+    actionItems: Array<{ id: string; text: string; owner?: string; due?: string }>
+  }>(null)
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('assistant:auto-draft')
+      if (stored) {
+        setAssistantDraft(JSON.parse(stored))
+      }
+    } catch (error) {
+      console.warn('Failed to read assistant draft', error)
+    }
+  }, [])
+
   return (
     <AppLayout>
       <div className="space-y-8">
@@ -54,6 +73,49 @@ export default function NewDocumentPage() {
             Open editor
           </Link>
         </div>
+
+        {assistantDraft ? (
+          <Card className="border border-primary/40 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between text-base">
+                <span>Assistant draft ready</span>
+                <Badge variant="secondary">Capture</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-muted-foreground">
+              <p>
+                {assistantDraft.summary
+                  ? assistantDraft.summary
+                  : 'A meeting transcript is staged. Open the editor to paste the transcript or action items.'}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href="/editor"
+                  className={cn(buttonVariants(), 'gap-2')}
+                  onClick={() => {
+                    try {
+                      localStorage.setItem('assistant:auto-draft', JSON.stringify(assistantDraft))
+                    } catch (error) {
+                      console.warn('Unable to persist draft for editor', error)
+                    }
+                  }}
+                >
+                  Open editor with draft
+                </Link>
+                <button
+                  type="button"
+                  className={cn(buttonVariants({ variant: 'outline' }), 'text-sm')}
+                  onClick={() => {
+                    localStorage.removeItem('assistant:auto-draft')
+                    setAssistantDraft(null)
+                  }}
+                >
+                  Dismiss draft
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <div className="grid gap-4 md:grid-cols-3">
           {quickStarts.map((item) => (

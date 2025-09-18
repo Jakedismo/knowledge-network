@@ -1,11 +1,11 @@
 "use client"
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { EditorContext } from '@/lib/editor/types'
-import { createAssistantProvider } from '@/lib/assistant/provider'
 import type { SuggestionItem } from '@/lib/assistant/types'
+import { useAssistantRuntime } from '@/lib/assistant/runtime-context'
 
 export function AssistantSuggestions({ ctx, getSelectionText }: { ctx?: EditorContext; getSelectionText?: () => string }) {
-  const provider = useMemo(() => createAssistantProvider(), [])
+  const { provider, context: baseContext, mergeContext } = useAssistantRuntime()
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([])
   const [text, setText] = useState('')
 
@@ -16,16 +16,18 @@ export function AssistantSuggestions({ ctx, getSelectionText }: { ctx?: EditorCo
       setText(t)
       if (!t || t.trim().length < 8) {
         if (mounted) setSuggestions([])
+        if (baseContext.selectionText) mergeContext({ selectionText: undefined })
         return
       }
-      const res = await provider.suggest({ text: t })
+      if (t !== baseContext.selectionText) mergeContext({ selectionText: t })
+      const res = await provider.suggest({ text: t, context: { ...baseContext, selectionText: t } })
       if (mounted) setSuggestions(res.suggestions)
     }, 300)
     return () => {
       mounted = false
       clearTimeout(debounce)
     }
-  }, [ctx, provider, getSelectionText])
+  }, [ctx, provider, getSelectionText, baseContext, mergeContext])
 
   if (suggestions.length === 0) return null
 

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { ApolloClientProvider } from '@/components/providers/ApolloClientProvider'
+import { AssistantRuntimeProvider } from '@/lib/assistant/runtime-context'
 import { MobileBottomNav } from '@/components/mobile/MobileBottomNav'
 import { InstallPrompt } from '@/components/pwa/InstallPrompt'
 
@@ -72,13 +73,15 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
         <ApolloClientProvider>
-          <div className="relative flex min-h-screen flex-col pb-16 md:pb-0">
-            <div className="flex-1">
-              {children}
+          <AssistantRuntimeProvider>
+            <div className="relative flex min-h-screen flex-col pb-16 md:pb-0">
+              <div className="flex-1">
+                {children}
+              </div>
+              <MobileBottomNav />
+              <InstallPrompt variant="toast" autoShow={true} showDelay={30000} />
             </div>
-            <MobileBottomNav />
-            <InstallPrompt variant="toast" autoShow={true} showDelay={30000} />
-          </div>
+          </AssistantRuntimeProvider>
         </ApolloClientProvider>
       </body>
     </html>

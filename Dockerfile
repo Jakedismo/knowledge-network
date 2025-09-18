@@ -17,11 +17,19 @@ FROM oven/bun:1-slim AS builder
 
 WORKDIR /app
 
+ARG ENCRYPTION_MASTER_KEY=dev-master-key-change-me
+ARG ENCRYPTION_SALT=dev-salt-change-me
+ENV ENCRYPTION_MASTER_KEY=$ENCRYPTION_MASTER_KEY
+ENV ENCRYPTION_SALT=$ENCRYPTION_SALT
+
 # Copy dependencies from previous stage
 COPY --from=dependencies /app/node_modules ./node_modules
 
 # Copy source code
 COPY . .
+
+# Prisma dependencies
+RUN apt-get update -y && apt-get install -y openssl
 
 # Generate Prisma client
 RUN bunx prisma generate

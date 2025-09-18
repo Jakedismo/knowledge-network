@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { WebhookService } from '@/server/modules/integrations/webhook.service';
-import { SecurityService } from '@/server/modules/integrations/security.service';
 import { WebhookConfig } from '@/server/modules/integrations/types';
 
-const webhookService = new WebhookService();
-const securityService = new SecurityService();
+let webhookService: WebhookService | null = null;
+
+const getWebhookService = () => {
+  if (!webhookService) {
+    try {
+      webhookService = new WebhookService();
+    } catch (error) {
+      console.warn('WebhookService initialization failed:', error);
+      return null;
+    }
+  }
+  return webhookService;
+};
 
 /**
  * List webhook configurations
@@ -28,7 +38,15 @@ export async function GET(request: NextRequest) {
     if (events) filter.events = events;
     if (active !== null) filter.active = active === 'true';
 
-    const webhooks = await webhookService.listWebhooks(filter);
+    const service = getWebhookService();
+    if (!service) {
+      return NextResponse.json(
+        { error: 'Webhook service not available' },
+        { status: 503 }
+      );
+    }
+
+    const webhooks = await service.listWebhooks(filter);
 
     // Filter by workspace
     const filtered = webhooks.filter(w =>
@@ -38,7 +56,7 @@ export async function GET(request: NextRequest) {
     // Get statistics for each webhook
     const webhooksWithStats = await Promise.all(
       filtered.map(async webhook => {
-        const stats = await webhookService.getWebhookStats(webhook.id);
+        const stats = await service.getWebhookStats(webhook.id);
         return {
           ...webhook,
           stats,
@@ -106,11 +124,19 @@ export async function POST(request: NextRequest) {
     (webhookConfig as any).createdAt = new Date();
 
     // Register webhook
-    const webhook = await webhookService.registerWebhook(webhookConfig);
+    const service = getWebhookService();
+    if (!service) {
+      return NextResponse.json(
+        { error: 'Webhook service not available' },
+        { status: 503 }
+      );
+    }
+
+    const webhook = await service.registerWebhook(webhookConfig);
 
     // Test webhook with a ping event
     try {
-      await webhookService.triggerEvent('webhook.test', {
+      await service.triggerEvent('webhook.test', {
         message: 'Webhook test event',
         timestamp: new Date(),
       }, {
@@ -155,7 +181,15 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get existing webhook
-    const existing = await webhookService.getWebhook(webhookId);
+    const service = getWebhookService();
+    if (!service) {
+      return NextResponse.json(
+        { error: 'Webhook service not available' },
+        { status: 503 }
+      );
+    }
+
+    const existing = await service.getWebhook(webhookId);
     if (!existing) {
       return NextResponse.json(
         { error: 'Webhook not found' },
@@ -179,7 +213,7 @@ export async function PUT(request: NextRequest) {
     if (active !== undefined) updates.active = active;
     if (retryPolicy !== undefined) updates.retryPolicy = retryPolicy;
 
-    const updated = await webhookService.updateWebhook(webhookId, updates);
+    const updated = await service.updateWebhook(webhookId, updates);
 
     return NextResponse.json({
       success: true,
@@ -211,7 +245,15 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Get existing webhook
-    const existing = await webhookService.getWebhook(webhookId);
+    const service = getWebhookService();
+    if (!service) {
+      return NextResponse.json(
+        { error: 'Webhook service not available' },
+        { status: 503 }
+      );
+    }
+
+    const existing = await service.getWebhook(webhookId);
     if (!existing) {
       return NextResponse.json(
         { error: 'Webhook not found' },
@@ -228,7 +270,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete webhook
-    await webhookService.deleteWebhook(webhookId);
+    await service.deleteWebhook(webhookId);
 
     return NextResponse.json({
       success: true,
