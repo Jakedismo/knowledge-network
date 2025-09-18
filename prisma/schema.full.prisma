@@ -1,0 +1,888 @@
+// This is your Prisma schema file for Knowledge Network React Application
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma-client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Core Enums
+enum KnowledgeStatus {
+  DRAFT
+  REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum ActivityAction {
+  CREATE
+  UPDATE
+  DELETE
+  VIEW
+  SHARE
+  COMMENT
+  COLLABORATE
+}
+
+enum LinkType {
+  REFERENCES
+  MENTIONS
+  RELATED
+  PARENT_CHILD
+  DUPLICATE
+}
+
+enum CommentStatus {
+  OPEN
+  RESOLVED
+  ARCHIVED
+}
+
+enum CollaborationUpdateKind {
+  DOCUMENT
+  AWARENESS
+  SYSTEM
+}
+
+enum CollaborationSnapshotReason {
+  SCHEDULED
+  USER_REQUEST
+  RECOVERY
+}
+
+// Access Control: Fine-grained permissions at workspace/collection/knowledge scopes
+enum ResourceType {
+  WORKSPACE
+  COLLECTION
+  KNOWLEDGE
+}
+
+enum SubjectType {
+  USER
+  ROLE
+}
+
+// Core Tables
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  displayName  String     @map("display_name")
+  passwordHash String     @map("password_hash")
+  status       UserStatus @default(ACTIVE)
+  preferences  Json       @default("{}")
+  avatarUrl    String?    @map("avatar_url")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  authoredKnowledge   Knowledge[]              @relation("AuthoredKnowledge")
+  workspaceRoles      UserWorkspaceRole[]
+  comments            Comment[]
+  activityLogs        ActivityLog[]
+  knowledgeVersions   KnowledgeVersion[]
+  collaborationSessions CollaborationSession[]
+
+  @@map("users")
+}
+
+model Workspace {
+  id          String @id @default(cuid())
+  name        String
+  description String?
+  settings    Json   @default("{}")
+  isActive    Boolean @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Ownership (for administration defaults)
+  ownerId     String? @map("owner_id")
+  owner       User?   @relation(fields: [ownerId], references: [id])
+
+  // Relations
+  knowledge       Knowledge[]
+  collections     Collection[]
+  tags            Tag[]
+  roles           Role[]
+  userRoles       UserWorkspaceRole[]
+  activityLogs    ActivityLog[]
+
+  @@map("workspaces")
+}
+
+model Knowledge {
+  id           String          @id @default(cuid())
+  title        String
+  content      String
+  contentDelta Json?           @map("content_delta") // Rich text editor state
+  excerpt      String?         // Auto-generated summary
+  status       KnowledgeStatus @default(DRAFT)
+  version      Int             @default(1)
+  isTemplate   Boolean         @default(false) @map("is_template")
+  templateId   String?         @map("template_id")
+  metadata     Json            @default("{}")
+  viewCount    Int             @default(0) @map("view_count")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  // Foreign Keys
+  workspaceId  String @map("workspace_id")
+  authorId     String @map("author_id")
+  collectionId String? @map("collection_id")
+
+  // Relations
+  workspace    Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  author       User               @relation("AuthoredKnowledge", fields: [authorId], references: [id])
+  collection   Collection?        @relation(fields: [collectionId], references: [id])
+  tags         KnowledgeTag[]
+  comments     Comment[]
+  versions     KnowledgeVersion[]
+  sourceLinks  KnowledgeLink[]    @relation("SourceLinks")
+  targetLinks  KnowledgeLink[]    @relation("TargetLinks")
+  collaborationSessions CollaborationSession[]
+
+  // Indexes
+  @@index([workspaceId])
+  @@index([authorId])
+  @@index([collectionId])
+  @@index([status])
+  @@index([updatedAt(sort: Desc)])
+  @@index([title])
+  @@fulltext([title, content])
+  @@map("knowledge")
+}
+
+model Collection {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  color       String? // Hex color
+  icon        String? // Icon identifier
+  metadata    Json    @default("{}")
+  sortOrder   Int     @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Foreign Keys
+  workspaceId String  @map("workspace_id")
+  parentId    String? @map("parent_id")
+
+  // Optional type for UI semantics (folders/smart views)
+  type        CollectionType @default(FOLDER)
+
+  // Relations
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parent    Collection?  @relation("CollectionHierarchy", fields: [parentId], references: [id])
+  children  Collection[] @relation("CollectionHierarchy")
+  knowledge Knowledge[]
+
+  @@index([workspaceId])
+  @@index([parentId])
+  @@map("collections")
+}
+
+enum CollectionType {
+  FOLDER
+  SMART
+}
+
+model Tag {
+  id         String @id @default(cuid())
+  name       String
+  color      String? // Hex color
+  usageCount Int    @default(0) @map("usage_count")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Foreign Keys
+  workspaceId String @map("workspace_id")
+
+  // Relations
+  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  knowledge KnowledgeTag[]
+
+  @@unique([name, workspaceId])
+  @@index([workspaceId])
+  @@map("tags")
+}
+
+model KnowledgeTag {
+  knowledgeId String @map("knowledge_id")
+  tagId       String @map("tag_id")
+
+  // Relations
+  knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  tag       Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([knowledgeId, tagId])
+  @@map("knowledge_tags")
+}
+
+model KnowledgeLink {
+  sourceId  String   @map("source_id")
+  targetId  String   @map("target_id")
+  linkType  LinkType @default(REFERENCES) @map("link_type")
+  strength  Float    @default(1.0) // Link strength for AI recommendations
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  source Knowledge @relation("SourceLinks", fields: [sourceId], references: [id], onDelete: Cascade)
+  target Knowledge @relation("TargetLinks", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@id([sourceId, targetId])
+  @@index([targetId])
+  @@map("knowledge_links")
+}
+
+model KnowledgeVersion {
+  id             String   @id @default(cuid())
+  versionNumber  Int      @map("version_number")
+  content        String
+  contentDelta   Json?    @map("content_delta")
+  changeSummary  String?  @map("change_summary")
+  diffData       Json?    @map("diff_data") // Computed diff from previous version
+  branchName     String   @default("main") @map("branch_name")
+  parentVersionId String? @map("parent_version_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Foreign Keys
+  knowledgeId String @map("knowledge_id")
+  authorId    String @map("author_id")
+
+  // Relations
+  knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id])
+
+  @@unique([knowledgeId, versionNumber])
+  @@index([knowledgeId])
+  @@map("knowledge_versions")
+}
+
+// Template marketplace publication metadata
+enum TemplateVisibility {
+  PRIVATE
+  WORKSPACE
+  PUBLIC
+  UNLISTED
+}
+
+enum TemplateStatus {
+  DRAFT
+  PUBLISHED
+  DEPRECATED
+}
+
+model TemplateListing {
+  id           String   @id @default(cuid())
+  templateId   String   @map("template_id")
+  workspaceId  String   @map("workspace_id")
+  creatorId    String   @map("creator_id")
+  visibility   TemplateVisibility @default(PRIVATE)
+  status       TemplateStatus     @default(DRAFT)
+  title        String
+  description  String?
+  categories   String[] @default([])
+  tags         String[] @default([])
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  template     Knowledge @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator      User      @relation(fields: [creatorId], references: [id])
+
+  @@index([workspaceId])
+  @@index([visibility, status])
+  @@map("template_listings")
+}
+
+model Comment {
+  id           String        @id @default(cuid())
+  content      String
+  positionData Json?         @map("position_data") // Editor position info
+  status       CommentStatus @default(OPEN)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  // Foreign Keys
+  knowledgeId String  @map("knowledge_id")
+  authorId    String  @map("author_id")
+  parentId    String? @map("parent_id")
+
+  // Relations
+  knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id])
+  parent    Comment?  @relation("CommentThread", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentThread")
+
+  @@index([knowledgeId])
+  @@index([authorId])
+  @@map("comments")
+}
+
+// Permission System
+model Role {
+  id           String  @id @default(cuid())
+  name         String
+  description  String?
+  permissions  Json    @default("[]") // Array of permission objects
+  isSystemRole Boolean @default(false) @map("is_system_role")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Foreign Keys
+  workspaceId String @map("workspace_id")
+
+  // Relations
+  workspace Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userRoles UserWorkspaceRole[]
+
+  @@unique([name, workspaceId])
+  @@index([workspaceId])
+  @@map("roles")
+}
+
+model UserWorkspaceRole {
+  grantedAt DateTime @default(now()) @map("granted_at")
+
+  // Foreign Keys
+  userId      String @map("user_id")
+  workspaceId String @map("workspace_id")
+  roleId      String @map("role_id")
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  role      Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, workspaceId, roleId])
+  @@map("user_workspace_roles")
+}
+
+// Collaboration Features
+model CollaborationSession {
+  id        String   @id @default(cuid())
+  socketId  String?  @map("socket_id")
+  isActive  Boolean  @default(true) @map("is_active")
+  lastSeen  DateTime @default(now()) @map("last_seen")
+  cursorPos Json?    @map("cursor_position") // Editor cursor position
+  selection Json?    @map("selection_range") // Text selection range
+  clientVersion String? @map("client_version")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Foreign Keys
+  userId      String @map("user_id")
+  knowledgeId String @map("knowledge_id")
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  updates   CollaborationUpdate[]
+  presences CollaborationPresence[]
+
+  @@unique([userId, knowledgeId])
+  @@index([knowledgeId])
+  @@index([isActive])
+  @@index([knowledgeId, isActive])
+  @@map("collaboration_sessions")
+}
+
+model CollaborationUpdate {
+  id             String                    @id @default(cuid())
+  knowledgeId    String                    @map("knowledge_id")
+  sessionId      String?                   @map("session_id")
+  userId         String                    @map("user_id")
+  kind           CollaborationUpdateKind   @default(DOCUMENT)
+  update         Bytes
+  size           Int                       @map("byte_size")
+  lamport        Int?                      @map("lamport_clock")
+  metadata       Json                      @default("{}")
+  transport      String                    @default("ws")
+  latencyMs      Int?                      @map("latency_ms")
+  versionPointer Int?                      @map("version_pointer")
+  createdAt      DateTime                  @default(now()) @map("created_at")
+
+  knowledge Knowledge           @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  session   CollaborationSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  user      User                 @relation(fields: [userId], references: [id])
+
+  @@index([knowledgeId, createdAt(sort: Desc)])
+  @@index([sessionId])
+  @@index([userId])
+  @@unique([knowledgeId, lamport], map: "collab_updates_lamport_unique")
+  @@map("collaboration_updates")
+}
+
+model CollaborationSnapshot {
+  id             String                      @id @default(cuid())
+  knowledgeId    String                      @map("knowledge_id")
+  version        Int                         @default(1)
+  checksum       String
+  state          Bytes
+  size           Int                          @map("byte_size")
+  reason         CollaborationSnapshotReason @default(SCHEDULED)
+  metadata       Json                        @default("{}")
+  createdAt      DateTime                    @default(now()) @map("created_at")
+  createdBy      String?                     @map("created_by")
+  lastUpdateId   String?                     @map("last_update_id")
+
+  knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  author    User?     @relation("CollaborationSnapshotAuthor", fields: [createdBy], references: [id])
+  update    CollaborationUpdate? @relation(fields: [lastUpdateId], references: [id], onDelete: SetNull)
+
+  @@unique([knowledgeId, version])
+  @@index([knowledgeId, createdAt(sort: Desc)])
+  @@map("collaboration_snapshots")
+}
+
+model CollaborationPresence {
+  id          String   @id @default(cuid())
+  knowledgeId String   @map("knowledge_id")
+  userId      String   @map("user_id")
+  sessionId   String?  @map("session_id")
+  state       Json     @default("{}")
+  expiresAt   DateTime @map("expires_at")
+  lastSeen    DateTime @default(now()) @map("last_seen")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  knowledge Knowledge           @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session   CollaborationSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@unique([knowledgeId, userId])
+  @@index([expiresAt])
+  @@index([sessionId])
+  @@map("collaboration_presence")
+}
+
+// Analytics and Activity Tracking
+model ActivityLog {
+  id           String         @id @default(cuid())
+  action       ActivityAction
+  resourceType String         @map("resource_type")
+  resourceId   String?        @map("resource_id")
+  metadata     Json           @default("{}")
+  ipAddress    String?        @map("ip_address")
+  userAgent    String?        @map("user_agent")
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  // Foreign Keys
+  userId      String? @map("user_id")
+  workspaceId String? @map("workspace_id")
+
+  // Relations
+  user      User?      @relation(fields: [userId], references: [id])
+  workspace Workspace? @relation(fields: [workspaceId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([resourceType, resourceId])
+  @@index([action])
+  @@map("activity_logs")
+}
+
+model SearchQuery {
+  id           String   @id @default(cuid())
+  query        String
+  filters      Json     @default("{}")
+  resultCount  Int      @map("result_count")
+  responseTime Int      @map("response_time") // In milliseconds
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Foreign Keys
+  userId      String? @map("user_id")
+  workspaceId String? @map("workspace_id")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([query])
+  @@map("search_queries")
+}
+
+// AI Integration Tables
+model AIProcessingJob {
+  id          String   @id @default(cuid())
+  jobType     String   @map("job_type") // 'embedding', 'summarization', 'tagging', etc.
+  status      String   @default("pending") // 'pending', 'processing', 'completed', 'failed'
+  input       Json
+  output      Json?
+  errorMessage String? @map("error_message")
+  processingTime Int?  @map("processing_time") // In milliseconds
+  retryCount  Int     @default(0) @map("retry_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+
+  // Foreign Keys
+  knowledgeId String? @map("knowledge_id")
+
+  @@index([jobType, status])
+  @@index([knowledgeId])
+  @@index([createdAt(sort: Desc)])
+  @@map("ai_processing_jobs")
+}
+
+model KnowledgeEmbedding {
+  id          String   @id @default(cuid())
+  embedding   Float[]  // Vector embedding
+  modelName   String   @map("model_name")
+  modelVersion String  @map("model_version")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Foreign Keys
+  knowledgeId String @unique @map("knowledge_id")
+
+  @@index([modelName, modelVersion])
+  @@map("knowledge_embeddings")
+}
+
+// Notification System
+model NotificationTemplate {
+  id       String @id @default(cuid())
+  name     String @unique
+  subject  String
+  htmlBody String @map("html_body")
+  textBody String @map("text_body")
+  isActive Boolean @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("notification_templates")
+}
+
+model UserNotification {
+  id         String   @id @default(cuid())
+  title      String
+  message    String
+  type       String   // 'info', 'warning', 'success', 'error'
+  isRead     Boolean  @default(false) @map("is_read")
+  actionUrl  String?  @map("action_url")
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+  readAt     DateTime? @map("read_at")
+
+  // Foreign Keys
+  userId String @map("user_id")
+
+  @@index([userId, isRead])
+  @@index([createdAt(sort: Desc)])
+  @@map("user_notifications")
+}
+
+// Integration Tables
+model ExternalIntegration {
+  id           String   @id @default(cuid())
+  name         String
+  type         String   // 'slack', 'teams', 'jira', 'github', etc.
+  config       Json     @default("{}")
+  credentials  Json     @default("{}") // Encrypted credentials
+  isActive     Boolean  @default(true) @map("is_active")
+  lastSyncAt   DateTime? @map("last_sync_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Foreign Keys
+  workspaceId String @map("workspace_id")
+
+  @@index([workspaceId])
+  @@index([type])
+  @@map("external_integrations")
+}
+
+// Access control entries (ACE) with inheritance semantics
+model AccessControlEntry {
+  id           String      @id @default(cuid())
+  workspaceId  String      @map("workspace_id")
+  resourceType ResourceType @map("resource_type")
+  resourceId   String?     @map("resource_id") // null means workspace-scope default
+  subjectType  SubjectType @map("subject_type") // USER or ROLE
+  subjectId    String      @map("subject_id")   // userId or roleId
+  // Permissions as array of strings e.g. ["collection:manage", "document:create"]
+  permissions  Json        @default("[]")
+  inherits     Boolean     @default(true) @map("inherits")
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([resourceType, resourceId])
+  @@unique([workspaceId, resourceType, resourceId, subjectType, subjectId])
+  @@map("access_control_entries")
+}
+
+// Optional metadata index table for targeted querying/sorting on JSON metadata
+enum MetadataValueType {
+  STRING
+  NUMBER
+  DATE
+  BOOLEAN
+}
+
+model MetadataIndexEntry {
+  id          String            @id @default(cuid())
+  knowledgeId String            @map("knowledge_id")
+  keyPath     String            @map("key_path")
+  valueType   MetadataValueType @map("value_type")
+  stringVal   String?           @map("string_val")
+  numberVal   Float?            @map("number_val")
+  dateVal     DateTime?         @map("date_val")
+  boolVal     Boolean?          @map("bool_val")
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  knowledge   Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+
+  @@index([knowledgeId])
+  @@index([keyPath])
+  @@index([valueType, stringVal])
+  @@index([valueType, numberVal])
+  @@index([valueType, dateVal])
+  @@map("metadata_index")
+}
+
+model ImportJob {
+  id           String   @id @default(cuid())
+  source       String   // 'csv', 'json', 'google_drive', etc.
+  status       String   @default("pending")
+  totalItems   Int      @default(0) @map("total_items")
+  processedItems Int    @default(0) @map("processed_items")
+  failedItems  Int      @default(0) @map("failed_items")
+  errorLog     Json?    @map("error_log")
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now()) @map("created_at")
+  completedAt  DateTime? @map("completed_at")
+
+  // Foreign Keys
+  workspaceId String @map("workspace_id")
+  userId      String @map("user_id")
+
+  @@index([workspaceId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("import_jobs")
+}
+
+// =========================
+// Review & Approval Workflows
+// =========================
+
+enum ReviewStatus {
+  PENDING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+  CANCELLED
+}
+
+enum DecisionType {
+  APPROVE
+  REJECT
+  REQUEST_CHANGES
+}
+
+enum AssigneeType {
+  USER
+  ROLE
+}
+
+enum WorkflowStepType {
+  SINGLE_APPROVAL
+  MULTI_APPROVAL
+  ANY_OF
+  ALL_OF
+  FYI
+}
+
+enum AssigneeState {
+  PENDING
+  NOTIFIED
+  ACCEPTED
+  DELEGATED
+  COMPLETED
+  EXPIRED
+}
+
+enum EscalationAction {
+  NOTIFY
+  REASSIGN
+  AUTO_APPROVE
+  AUTO_REJECT
+}
+
+model ReviewWorkflow {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  name        String
+  description String?
+  version     Int      @default(1)
+  isActive    Boolean  @default(true) @map("is_active")
+  config      Json     @default("{}") // free-form options (e.g., notifications)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  steps     WorkflowStep[]
+  requests  ReviewRequest[]
+
+  @@index([workspaceId])
+  @@unique([workspaceId, name, version])
+  @@map("review_workflows")
+}
+
+model WorkflowStep {
+  id           String           @id @default(cuid())
+  workflowId   String           @map("workflow_id")
+  index        Int              // 0-based order
+  type         WorkflowStepType @default(SINGLE_APPROVAL)
+  name         String
+  description  String?
+  requiredApprovals Int         @default(1) @map("required_approvals")
+  slaHours     Int?             @map("sla_hours")
+  metadata     Json             @default("{}")
+
+  // Relations
+  workflow   ReviewWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  assignees  WorkflowStepAssignee[]
+  escalations EscalationPolicy[]
+
+  @@unique([workflowId, index])
+  @@index([workflowId])
+  @@map("workflow_steps")
+}
+
+model WorkflowStepAssignee {
+  id          String       @id @default(cuid())
+  stepId      String       @map("step_id")
+  assigneeType AssigneeType @map("assignee_type")
+  assigneeId  String       @map("assignee_id") // userId or roleId
+  minApprovals Int?        @map("min_approvals")
+
+  step WorkflowStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@unique([stepId, assigneeType, assigneeId])
+  @@index([stepId])
+  @@map("workflow_step_assignees")
+}
+
+model EscalationPolicy {
+  id          String           @id @default(cuid())
+  stepId      String           @map("step_id")
+  afterHours  Int              @map("after_hours")
+  action      EscalationAction
+  toType      AssigneeType?    @map("to_type")
+  toId        String?          @map("to_id")
+  notify      String[]         @default([]) // channels: email, slack, etc.
+  metadata    Json             @default("{}")
+
+  step WorkflowStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@index([stepId])
+  @@map("escalation_policies")
+}
+
+model ReviewRequest {
+  id            String       @id @default(cuid())
+  workspaceId   String       @map("workspace_id")
+  knowledgeId   String       @map("knowledge_id")
+  workflowId    String       @map("workflow_id")
+  initiatorId   String       @map("initiator_id")
+  status        ReviewStatus @default(PENDING)
+  currentStep   Int          @default(0) @map("current_step")
+  dueAt         DateTime?    @map("due_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  knowledge Knowledge     @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  workflow  ReviewWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  initiator User          @relation(fields: [initiatorId], references: [id])
+  decisions ApprovalDecision[]
+  assignments ReviewAssignee[]
+  changes    ReviewChangeRequest[]
+  events     ReviewEvent[]
+
+  @@index([workspaceId])
+  @@index([knowledgeId])
+  @@index([workflowId])
+  @@index([status])
+  @@map("review_requests")
+}
+
+model ReviewAssignee {
+  id           String        @id @default(cuid())
+  requestId    String        @map("request_id")
+  stepIndex    Int           @map("step_index")
+  assigneeType AssigneeType  @map("assignee_type")
+  assigneeId   String        @map("assignee_id")
+  state        AssigneeState @default(PENDING)
+  delegatedToId String?      @map("delegated_to_id")
+  notifiedAt   DateTime?     @map("notified_at")
+  actedAt      DateTime?     @map("acted_at")
+
+  request ReviewRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([assigneeId])
+  @@unique([requestId, stepIndex, assigneeType, assigneeId])
+  @@map("review_assignees")
+}
+
+model ApprovalDecision {
+  id          String       @id @default(cuid())
+  requestId   String       @map("request_id")
+  stepIndex   Int          @map("step_index")
+  reviewerId  String       @map("reviewer_id")
+  decision    DecisionType
+  comment     String?
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  request ReviewRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  reviewer User         @relation(fields: [reviewerId], references: [id])
+
+  @@index([requestId])
+  @@index([reviewerId])
+  @@map("approval_decisions")
+}
+
+model ReviewChangeRequest {
+  id             String   @id @default(cuid())
+  requestId      String   @map("request_id")
+  versionFromId  String   @map("version_from_id")
+  versionToId    String   @map("version_to_id")
+  summary        String?
+  status         String   @default("OPEN")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  request   ReviewRequest   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  from      KnowledgeVersion @relation("ChangeFromVersion", fields: [versionFromId], references: [id])
+  to        KnowledgeVersion @relation("ChangeToVersion", fields: [versionToId], references: [id])
+
+  @@index([requestId])
+  @@map("review_change_requests")
+}
+
+model ReviewEvent {
+  id         String   @id @default(cuid())
+  requestId  String   @map("request_id")
+  actorId    String?  @map("actor_id")
+  type       String
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  request ReviewRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  actor   User?         @relation(fields: [actorId], references: [id])
+
+  @@index([requestId, createdAt(sort: Desc)])
+  @@map("review_events")
+}

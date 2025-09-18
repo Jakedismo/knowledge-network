@@ -22,10 +22,16 @@ export function TemplateGallery({ className, onSelect }: TemplateGalleryProps) {
     const run = async () => {
       setLoading(true)
       try {
-        const res = await fetch(`/api/templates?q=${encodeURIComponent(q)}`)
+        const res = await fetch(`/api/templates-simple?q=${encodeURIComponent(q)}`)
         if (!res.ok) throw new Error('Failed to load templates')
         const data = await res.json()
-        if (!cancelled) setItems(data.items ?? [])
+        if (!cancelled) setItems(data.templates?.map((t: any) => ({
+          id: t.id,
+          name: t.title,
+          description: t.description,
+          version: '1.0',
+          visibility: t.isPublic ? 'public' : 'private'
+        })) ?? [])
       } finally {
         if (!cancelled) setLoading(false)
       }

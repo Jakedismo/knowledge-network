@@ -86,36 +86,52 @@ model User {
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
   // Relations
-  authoredKnowledge   Knowledge[]              @relation("AuthoredKnowledge")
-  workspaceRoles      UserWorkspaceRole[]
-  comments            Comment[]
-  activityLogs        ActivityLog[]
-  knowledgeVersions   KnowledgeVersion[]
-  collaborationSessions CollaborationSession[]
+  authoredKnowledge      Knowledge[]             @relation("AuthoredKnowledge")
+  workspaceRoles         UserWorkspaceRole[]
+  comments               Comment[]
+  activityLogs           ActivityLog[]
+  knowledgeVersions      KnowledgeVersion[]
+  collaborationSessions  CollaborationSession[]
+  ownedWorkspaces        Workspace[]             @relation("WorkspaceOwner")
+  templateListings       TemplateListing[]
+  collaborationUpdates   CollaborationUpdate[]
+  collaborationSnapshots CollaborationSnapshot[] @relation("CollaborationSnapshotAuthor")
+  collaborationPresences CollaborationPresence[]
+  reviewRequests         ReviewRequest[]         @relation("ReviewInitiator")
+  approvalDecisions      ApprovalDecision[]
+  reviewEvents           ReviewEvent[]
+  UserNotification       UserNotification[]
+  ImportJob              ImportJob[]
 
   @@map("users")
 }
 
 model Workspace {
-  id          String @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
   description String?
-  settings    Json   @default("{}")
-  isActive    Boolean @default(true) @map("is_active")
+  settings    Json     @default("{}")
+  isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Ownership (for administration defaults)
-  ownerId     String? @map("owner_id")
-  owner       User?   @relation(fields: [ownerId], references: [id])
+  ownerId String? @map("owner_id")
+  owner   User?   @relation("WorkspaceOwner", fields: [ownerId], references: [id])
 
   // Relations
-  knowledge       Knowledge[]
-  collections     Collection[]
-  tags            Tag[]
-  roles           Role[]
-  userRoles       UserWorkspaceRole[]
-  activityLogs    ActivityLog[]
+  knowledge            Knowledge[]
+  collections          Collection[]
+  tags                 Tag[]
+  roles                Role[]
+  userRoles            UserWorkspaceRole[]
+  activityLogs         ActivityLog[]
+  templateListings     TemplateListing[]
+  accessControlEntries AccessControlEntry[]
+  externalIntegrations ExternalIntegration[]
+  importJobs           ImportJob[]
+  reviewWorkflows      ReviewWorkflow[]
+  reviewRequests       ReviewRequest[]
 
   @@map("workspaces")
 }
@@ -125,7 +141,7 @@ model Knowledge {
   title        String
   content      String
   contentDelta Json?           @map("content_delta") // Rich text editor state
-  excerpt      String?         // Auto-generated summary
+  excerpt      String? // Auto-generated summary
   status       KnowledgeStatus @default(DRAFT)
   version      Int             @default(1)
   isTemplate   Boolean         @default(false) @map("is_template")
@@ -136,20 +152,28 @@ model Knowledge {
   updatedAt    DateTime        @updatedAt @map("updated_at")
 
   // Foreign Keys
-  workspaceId  String @map("workspace_id")
-  authorId     String @map("author_id")
+  workspaceId  String  @map("workspace_id")
+  authorId     String  @map("author_id")
   collectionId String? @map("collection_id")
 
   // Relations
-  workspace    Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  author       User               @relation("AuthoredKnowledge", fields: [authorId], references: [id])
-  collection   Collection?        @relation(fields: [collectionId], references: [id])
-  tags         KnowledgeTag[]
-  comments     Comment[]
-  versions     KnowledgeVersion[]
-  sourceLinks  KnowledgeLink[]    @relation("SourceLinks")
-  targetLinks  KnowledgeLink[]    @relation("TargetLinks")
-  collaborationSessions CollaborationSession[]
+  workspace              Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  author                 User                    @relation("AuthoredKnowledge", fields: [authorId], references: [id])
+  collection             Collection?             @relation(fields: [collectionId], references: [id])
+  tags                   KnowledgeTag[]
+  comments               Comment[]
+  versions               KnowledgeVersion[]
+  sourceLinks            KnowledgeLink[]         @relation("SourceLinks")
+  targetLinks            KnowledgeLink[]         @relation("TargetLinks")
+  collaborationSessions  CollaborationSession[]
+  templateListings       TemplateListing[]
+  collaborationUpdates   CollaborationUpdate[]
+  collaborationSnapshots CollaborationSnapshot[]
+  collaborationPresences CollaborationPresence[]
+  aiProcessingJobs       AIProcessingJob[]
+  knowledgeEmbeddings    KnowledgeEmbedding[]
+  metadataIndexEntries   MetadataIndexEntry[]
+  reviewRequests         ReviewRequest[]
 
   // Indexes
   @@index([workspaceId])
@@ -158,18 +182,18 @@ model Knowledge {
   @@index([status])
   @@index([updatedAt(sort: Desc)])
   @@index([title])
-  @@fulltext([title, content])
+  // @@fulltext([title, content]) // Not supported in basic PostgreSQL
   @@map("knowledge")
 }
 
 model Collection {
-  id          String  @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
   description String?
   color       String? // Hex color
   icon        String? // Icon identifier
-  metadata    Json    @default("{}")
-  sortOrder   Int     @default(0) @map("sort_order")
+  metadata    Json     @default("{}")
+  sortOrder   Int      @default(0) @map("sort_order")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -178,7 +202,7 @@ model Collection {
   parentId    String? @map("parent_id")
 
   // Optional type for UI semantics (folders/smart views)
-  type        CollectionType @default(FOLDER)
+  type CollectionType @default(FOLDER)
 
   // Relations
   workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -197,10 +221,10 @@ enum CollectionType {
 }
 
 model Tag {
-  id         String @id @default(cuid())
+  id         String   @id @default(cuid())
   name       String
   color      String? // Hex color
-  usageCount Int    @default(0) @map("usage_count")
+  usageCount Int      @default(0) @map("usage_count")
   createdAt  DateTime @default(now()) @map("created_at")
 
   // Foreign Keys
@@ -244,23 +268,25 @@ model KnowledgeLink {
 }
 
 model KnowledgeVersion {
-  id             String   @id @default(cuid())
-  versionNumber  Int      @map("version_number")
-  content        String
-  contentDelta   Json?    @map("content_delta")
-  changeSummary  String?  @map("change_summary")
-  diffData       Json?    @map("diff_data") // Computed diff from previous version
-  branchName     String   @default("main") @map("branch_name")
-  parentVersionId String? @map("parent_version_id")
-  createdAt      DateTime @default(now()) @map("created_at")
+  id              String   @id @default(cuid())
+  versionNumber   Int      @map("version_number")
+  content         String
+  contentDelta    Json?    @map("content_delta")
+  changeSummary   String?  @map("change_summary")
+  diffData        Json?    @map("diff_data") // Computed diff from previous version
+  branchName      String   @default("main") @map("branch_name")
+  parentVersionId String?  @map("parent_version_id")
+  createdAt       DateTime @default(now()) @map("created_at")
 
   // Foreign Keys
   knowledgeId String @map("knowledge_id")
   authorId    String @map("author_id")
 
   // Relations
-  knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
-  author    User      @relation(fields: [authorId], references: [id])
+  knowledge          Knowledge             @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  author             User                  @relation(fields: [authorId], references: [id])
+  changeFromRequests ReviewChangeRequest[] @relation("ChangeFromVersion")
+  changeToRequests   ReviewChangeRequest[] @relation("ChangeToVersion")
 
   @@unique([knowledgeId, versionNumber])
   @@index([knowledgeId])
@@ -282,23 +308,23 @@ enum TemplateStatus {
 }
 
 model TemplateListing {
-  id           String   @id @default(cuid())
-  templateId   String   @map("template_id")
-  workspaceId  String   @map("workspace_id")
-  creatorId    String   @map("creator_id")
-  visibility   TemplateVisibility @default(PRIVATE)
-  status       TemplateStatus     @default(DRAFT)
-  title        String
-  description  String?
-  categories   String[] @default([])
-  tags         String[] @default([])
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id          String             @id @default(cuid())
+  templateId  String             @map("template_id")
+  workspaceId String             @map("workspace_id")
+  creatorId   String             @map("creator_id")
+  visibility  TemplateVisibility @default(PRIVATE)
+  status      TemplateStatus     @default(DRAFT)
+  title       String
+  description String?
+  categories  String[]           @default([])
+  tags        String[]           @default([])
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
 
   // Relations
-  template     Knowledge @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  creator      User      @relation(fields: [creatorId], references: [id])
+  template  Knowledge @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator   User      @relation(fields: [creatorId], references: [id])
 
   @@index([workspaceId])
   @@index([visibility, status])
@@ -331,11 +357,11 @@ model Comment {
 
 // Permission System
 model Role {
-  id           String  @id @default(cuid())
+  id           String   @id @default(cuid())
   name         String
   description  String?
-  permissions  Json    @default("[]") // Array of permission objects
-  isSystemRole Boolean @default(false) @map("is_system_role")
+  permissions  Json     @default("[]") // Array of permission objects
+  isSystemRole Boolean  @default(false) @map("is_system_role")
   createdAt    DateTime @default(now()) @map("created_at")
 
   // Foreign Keys
@@ -369,22 +395,22 @@ model UserWorkspaceRole {
 
 // Collaboration Features
 model CollaborationSession {
-  id        String   @id @default(cuid())
-  socketId  String?  @map("socket_id")
-  isActive  Boolean  @default(true) @map("is_active")
-  lastSeen  DateTime @default(now()) @map("last_seen")
-  cursorPos Json?    @map("cursor_position") // Editor cursor position
-  selection Json?    @map("selection_range") // Text selection range
-  clientVersion String? @map("client_version")
-  createdAt DateTime @default(now()) @map("created_at")
+  id            String   @id @default(cuid())
+  socketId      String?  @map("socket_id")
+  isActive      Boolean  @default(true) @map("is_active")
+  lastSeen      DateTime @default(now()) @map("last_seen")
+  cursorPos     Json?    @map("cursor_position") // Editor cursor position
+  selection     Json?    @map("selection_range") // Text selection range
+  clientVersion String?  @map("client_version")
+  createdAt     DateTime @default(now()) @map("created_at")
 
   // Foreign Keys
   userId      String @map("user_id")
   knowledgeId String @map("knowledge_id")
 
   // Relations
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  user      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  knowledge Knowledge               @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
   updates   CollaborationUpdate[]
   presences CollaborationPresence[]
 
@@ -396,46 +422,47 @@ model CollaborationSession {
 }
 
 model CollaborationUpdate {
-  id             String                    @id @default(cuid())
-  knowledgeId    String                    @map("knowledge_id")
-  sessionId      String?                   @map("session_id")
-  userId         String                    @map("user_id")
-  kind           CollaborationUpdateKind   @default(DOCUMENT)
+  id             String                  @id @default(cuid())
+  knowledgeId    String                  @map("knowledge_id")
+  sessionId      String?                 @map("session_id")
+  userId         String                  @map("user_id")
+  kind           CollaborationUpdateKind @default(DOCUMENT)
   update         Bytes
-  size           Int                       @map("byte_size")
-  lamport        Int?                      @map("lamport_clock")
-  metadata       Json                      @default("{}")
-  transport      String                    @default("ws")
-  latencyMs      Int?                      @map("latency_ms")
-  versionPointer Int?                      @map("version_pointer")
-  createdAt      DateTime                  @default(now()) @map("created_at")
+  size           Int                     @map("byte_size")
+  lamport        Int?                    @map("lamport_clock")
+  metadata       Json                    @default("{}")
+  transport      String                  @default("ws")
+  latencyMs      Int?                    @map("latency_ms")
+  versionPointer Int?                    @map("version_pointer")
+  createdAt      DateTime                @default(now()) @map("created_at")
 
-  knowledge Knowledge           @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
-  session   CollaborationSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  user      User                 @relation(fields: [userId], references: [id])
+  knowledge             Knowledge               @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  session               CollaborationSession?   @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  user                  User                    @relation(fields: [userId], references: [id])
+  CollaborationSnapshot CollaborationSnapshot[]
 
+  @@unique([knowledgeId, lamport], map: "collab_updates_lamport_unique")
   @@index([knowledgeId, createdAt(sort: Desc)])
   @@index([sessionId])
   @@index([userId])
-  @@unique([knowledgeId, lamport], map: "collab_updates_lamport_unique")
   @@map("collaboration_updates")
 }
 
 model CollaborationSnapshot {
-  id             String                      @id @default(cuid())
-  knowledgeId    String                      @map("knowledge_id")
-  version        Int                         @default(1)
-  checksum       String
-  state          Bytes
-  size           Int                          @map("byte_size")
-  reason         CollaborationSnapshotReason @default(SCHEDULED)
-  metadata       Json                        @default("{}")
-  createdAt      DateTime                    @default(now()) @map("created_at")
-  createdBy      String?                     @map("created_by")
-  lastUpdateId   String?                     @map("last_update_id")
+  id           String                      @id @default(cuid())
+  knowledgeId  String                      @map("knowledge_id")
+  version      Int                         @default(1)
+  checksum     String
+  state        Bytes
+  size         Int                         @map("byte_size")
+  reason       CollaborationSnapshotReason @default(SCHEDULED)
+  metadata     Json                        @default("{}")
+  createdAt    DateTime                    @default(now()) @map("created_at")
+  createdBy    String?                     @map("created_by")
+  lastUpdateId String?                     @map("last_update_id")
 
-  knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
-  author    User?     @relation("CollaborationSnapshotAuthor", fields: [createdBy], references: [id])
+  knowledge Knowledge            @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  author    User?                @relation("CollaborationSnapshotAuthor", fields: [createdBy], references: [id])
   update    CollaborationUpdate? @relation(fields: [lastUpdateId], references: [id], onDelete: SetNull)
 
   @@unique([knowledgeId, version])
@@ -454,8 +481,8 @@ model CollaborationPresence {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  knowledge Knowledge           @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
-  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  knowledge Knowledge             @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  user      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   session   CollaborationSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
   @@unique([knowledgeId, userId])
@@ -510,19 +537,20 @@ model SearchQuery {
 
 // AI Integration Tables
 model AIProcessingJob {
-  id          String   @id @default(cuid())
-  jobType     String   @map("job_type") // 'embedding', 'summarization', 'tagging', etc.
-  status      String   @default("pending") // 'pending', 'processing', 'completed', 'failed'
-  input       Json
-  output      Json?
-  errorMessage String? @map("error_message")
-  processingTime Int?  @map("processing_time") // In milliseconds
-  retryCount  Int     @default(0) @map("retry_count")
-  createdAt   DateTime @default(now()) @map("created_at")
-  completedAt DateTime? @map("completed_at")
+  id             String    @id @default(cuid())
+  jobType        String    @map("job_type") // 'embedding', 'summarization', 'tagging', etc.
+  status         String    @default("pending") // 'pending', 'processing', 'completed', 'failed'
+  input          Json
+  output         Json?
+  errorMessage   String?   @map("error_message")
+  processingTime Int?      @map("processing_time") // In milliseconds
+  retryCount     Int       @default(0) @map("retry_count")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  completedAt    DateTime? @map("completed_at")
 
   // Foreign Keys
-  knowledgeId String? @map("knowledge_id")
+  knowledgeId String?    @map("knowledge_id")
+  knowledge   Knowledge? @relation(fields: [knowledgeId], references: [id])
 
   @@index([jobType, status])
   @@index([knowledgeId])
@@ -531,14 +559,15 @@ model AIProcessingJob {
 }
 
 model KnowledgeEmbedding {
-  id          String   @id @default(cuid())
-  embedding   Float[]  // Vector embedding
-  modelName   String   @map("model_name")
-  modelVersion String  @map("model_version")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id           String   @id @default(cuid())
+  embedding    Float[] // Vector embedding
+  modelName    String   @map("model_name")
+  modelVersion String   @map("model_version")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   // Foreign Keys
-  knowledgeId String @unique @map("knowledge_id")
+  knowledgeId String    @unique @map("knowledge_id")
+  knowledge   Knowledge @relation(fields: [knowledgeId], references: [id])
 
   @@index([modelName, modelVersion])
   @@map("knowledge_embeddings")
@@ -546,12 +575,12 @@ model KnowledgeEmbedding {
 
 // Notification System
 model NotificationTemplate {
-  id       String @id @default(cuid())
-  name     String @unique
-  subject  String
-  htmlBody String @map("html_body")
-  textBody String @map("text_body")
-  isActive Boolean @default(true) @map("is_active")
+  id        String   @id @default(cuid())
+  name      String   @unique
+  subject   String
+  htmlBody  String   @map("html_body")
+  textBody  String   @map("text_body")
+  isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -559,18 +588,19 @@ model NotificationTemplate {
 }
 
 model UserNotification {
-  id         String   @id @default(cuid())
-  title      String
-  message    String
-  type       String   // 'info', 'warning', 'success', 'error'
-  isRead     Boolean  @default(false) @map("is_read")
-  actionUrl  String?  @map("action_url")
-  metadata   Json     @default("{}")
-  createdAt  DateTime @default(now()) @map("created_at")
-  readAt     DateTime? @map("read_at")
+  id        String    @id @default(cuid())
+  title     String
+  message   String
+  type      String // 'info', 'warning', 'success', 'error'
+  isRead    Boolean   @default(false) @map("is_read")
+  actionUrl String?   @map("action_url")
+  metadata  Json      @default("{}")
+  createdAt DateTime  @default(now()) @map("created_at")
+  readAt    DateTime? @map("read_at")
 
   // Foreign Keys
   userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
 
   @@index([userId, isRead])
   @@index([createdAt(sort: Desc)])
@@ -579,18 +609,19 @@ model UserNotification {
 
 // Integration Tables
 model ExternalIntegration {
-  id           String   @id @default(cuid())
-  name         String
-  type         String   // 'slack', 'teams', 'jira', 'github', etc.
-  config       Json     @default("{}")
-  credentials  Json     @default("{}") // Encrypted credentials
-  isActive     Boolean  @default(true) @map("is_active")
-  lastSyncAt   DateTime? @map("last_sync_at")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id          String    @id @default(cuid())
+  name        String
+  type        String // 'slack', 'teams', 'jira', 'github', etc.
+  config      Json      @default("{}")
+  credentials Json      @default("{}") // Encrypted credentials
+  isActive    Boolean   @default(true) @map("is_active")
+  lastSyncAt  DateTime? @map("last_sync_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   // Foreign Keys
-  workspaceId String @map("workspace_id")
+  workspaceId String    @map("workspace_id")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
 
   @@index([workspaceId])
   @@index([type])
@@ -599,23 +630,23 @@ model ExternalIntegration {
 
 // Access control entries (ACE) with inheritance semantics
 model AccessControlEntry {
-  id           String      @id @default(cuid())
-  workspaceId  String      @map("workspace_id")
+  id           String       @id @default(cuid())
+  workspaceId  String       @map("workspace_id")
   resourceType ResourceType @map("resource_type")
-  resourceId   String?     @map("resource_id") // null means workspace-scope default
-  subjectType  SubjectType @map("subject_type") // USER or ROLE
-  subjectId    String      @map("subject_id")   // userId or roleId
+  resourceId   String?      @map("resource_id") // null means workspace-scope default
+  subjectType  SubjectType  @map("subject_type") // USER or ROLE
+  subjectId    String       @map("subject_id") // userId or roleId
   // Permissions as array of strings e.g. ["collection:manage", "document:create"]
-  permissions  Json        @default("[]")
-  inherits     Boolean     @default(true) @map("inherits")
-  createdAt    DateTime    @default(now()) @map("created_at")
+  permissions  Json         @default("[]")
+  inherits     Boolean      @default(true) @map("inherits")
+  createdAt    DateTime     @default(now()) @map("created_at")
 
   // Relations
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  @@unique([workspaceId, resourceType, resourceId, subjectType, subjectId])
   @@index([workspaceId])
   @@index([resourceType, resourceId])
-  @@unique([workspaceId, resourceType, resourceId, subjectType, subjectId])
   @@map("access_control_entries")
 }
 
@@ -638,7 +669,7 @@ model MetadataIndexEntry {
   boolVal     Boolean?          @map("bool_val")
   createdAt   DateTime          @default(now()) @map("created_at")
 
-  knowledge   Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
 
   @@index([knowledgeId])
   @@index([keyPath])
@@ -649,20 +680,22 @@ model MetadataIndexEntry {
 }
 
 model ImportJob {
-  id           String   @id @default(cuid())
-  source       String   // 'csv', 'json', 'google_drive', etc.
-  status       String   @default("pending")
-  totalItems   Int      @default(0) @map("total_items")
-  processedItems Int    @default(0) @map("processed_items")
-  failedItems  Int      @default(0) @map("failed_items")
-  errorLog     Json?    @map("error_log")
-  metadata     Json     @default("{}")
-  createdAt    DateTime @default(now()) @map("created_at")
-  completedAt  DateTime? @map("completed_at")
+  id             String    @id @default(cuid())
+  source         String // 'csv', 'json', 'google_drive', etc.
+  status         String    @default("pending")
+  totalItems     Int       @default(0) @map("total_items")
+  processedItems Int       @default(0) @map("processed_items")
+  failedItems    Int       @default(0) @map("failed_items")
+  errorLog       Json?     @map("error_log")
+  metadata       Json      @default("{}")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  completedAt    DateTime? @map("completed_at")
 
   // Foreign Keys
-  workspaceId String @map("workspace_id")
-  userId      String @map("user_id")
+  workspaceId String    @map("workspace_id")
+  userId      String    @map("user_id")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
 
   @@index([workspaceId])
   @@index([status])
@@ -730,29 +763,29 @@ model ReviewWorkflow {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   steps     WorkflowStep[]
   requests  ReviewRequest[]
 
-  @@index([workspaceId])
   @@unique([workspaceId, name, version])
+  @@index([workspaceId])
   @@map("review_workflows")
 }
 
 model WorkflowStep {
-  id           String           @id @default(cuid())
-  workflowId   String           @map("workflow_id")
-  index        Int              // 0-based order
-  type         WorkflowStepType @default(SINGLE_APPROVAL)
-  name         String
-  description  String?
-  requiredApprovals Int         @default(1) @map("required_approvals")
-  slaHours     Int?             @map("sla_hours")
-  metadata     Json             @default("{}")
+  id                String           @id @default(cuid())
+  workflowId        String           @map("workflow_id")
+  index             Int // 0-based order
+  type              WorkflowStepType @default(SINGLE_APPROVAL)
+  name              String
+  description       String?
+  requiredApprovals Int              @default(1) @map("required_approvals")
+  slaHours          Int?             @map("sla_hours")
+  metadata          Json             @default("{}")
 
   // Relations
-  workflow   ReviewWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  assignees  WorkflowStepAssignee[]
+  workflow    ReviewWorkflow         @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  assignees   WorkflowStepAssignee[]
   escalations EscalationPolicy[]
 
   @@unique([workflowId, index])
@@ -761,11 +794,11 @@ model WorkflowStep {
 }
 
 model WorkflowStepAssignee {
-  id          String       @id @default(cuid())
-  stepId      String       @map("step_id")
+  id           String       @id @default(cuid())
+  stepId       String       @map("step_id")
   assigneeType AssigneeType @map("assignee_type")
-  assigneeId  String       @map("assignee_id") // userId or roleId
-  minApprovals Int?        @map("min_approvals")
+  assigneeId   String       @map("assignee_id") // userId or roleId
+  minApprovals Int?         @map("min_approvals")
 
   step WorkflowStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
 
@@ -775,14 +808,14 @@ model WorkflowStepAssignee {
 }
 
 model EscalationPolicy {
-  id          String           @id @default(cuid())
-  stepId      String           @map("step_id")
-  afterHours  Int              @map("after_hours")
-  action      EscalationAction
-  toType      AssigneeType?    @map("to_type")
-  toId        String?          @map("to_id")
-  notify      String[]         @default([]) // channels: email, slack, etc.
-  metadata    Json             @default("{}")
+  id         String           @id @default(cuid())
+  stepId     String           @map("step_id")
+  afterHours Int              @map("after_hours")
+  action     EscalationAction
+  toType     AssigneeType?    @map("to_type")
+  toId       String?          @map("to_id")
+  notify     String[]         @default([]) // channels: email, slack, etc.
+  metadata   Json             @default("{}")
 
   step WorkflowStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
 
@@ -791,26 +824,26 @@ model EscalationPolicy {
 }
 
 model ReviewRequest {
-  id            String       @id @default(cuid())
-  workspaceId   String       @map("workspace_id")
-  knowledgeId   String       @map("knowledge_id")
-  workflowId    String       @map("workflow_id")
-  initiatorId   String       @map("initiator_id")
-  status        ReviewStatus @default(PENDING)
-  currentStep   Int          @default(0) @map("current_step")
-  dueAt         DateTime?    @map("due_at")
-  createdAt     DateTime     @default(now()) @map("created_at")
-  updatedAt     DateTime     @updatedAt @map("updated_at")
+  id          String       @id @default(cuid())
+  workspaceId String       @map("workspace_id")
+  knowledgeId String       @map("knowledge_id")
+  workflowId  String       @map("workflow_id")
+  initiatorId String       @map("initiator_id")
+  status      ReviewStatus @default(PENDING)
+  currentStep Int          @default(0) @map("current_step")
+  dueAt       DateTime?    @map("due_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
 
   // Relations
-  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  knowledge Knowledge     @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
-  workflow  ReviewWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  initiator User          @relation(fields: [initiatorId], references: [id])
-  decisions ApprovalDecision[]
+  workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  knowledge   Knowledge             @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  workflow    ReviewWorkflow        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  initiator   User                  @relation("ReviewInitiator", fields: [initiatorId], references: [id])
+  decisions   ApprovalDecision[]
   assignments ReviewAssignee[]
-  changes    ReviewChangeRequest[]
-  events     ReviewEvent[]
+  changes     ReviewChangeRequest[]
+  events      ReviewEvent[]
 
   @@index([workspaceId])
   @@index([knowledgeId])
@@ -820,35 +853,35 @@ model ReviewRequest {
 }
 
 model ReviewAssignee {
-  id           String        @id @default(cuid())
-  requestId    String        @map("request_id")
-  stepIndex    Int           @map("step_index")
-  assigneeType AssigneeType  @map("assignee_type")
-  assigneeId   String        @map("assignee_id")
-  state        AssigneeState @default(PENDING)
-  delegatedToId String?      @map("delegated_to_id")
-  notifiedAt   DateTime?     @map("notified_at")
-  actedAt      DateTime?     @map("acted_at")
+  id            String        @id @default(cuid())
+  requestId     String        @map("request_id")
+  stepIndex     Int           @map("step_index")
+  assigneeType  AssigneeType  @map("assignee_type")
+  assigneeId    String        @map("assignee_id")
+  state         AssigneeState @default(PENDING)
+  delegatedToId String?       @map("delegated_to_id")
+  notifiedAt    DateTime?     @map("notified_at")
+  actedAt       DateTime?     @map("acted_at")
 
   request ReviewRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
+  @@unique([requestId, stepIndex, assigneeType, assigneeId])
   @@index([requestId])
   @@index([assigneeId])
-  @@unique([requestId, stepIndex, assigneeType, assigneeId])
   @@map("review_assignees")
 }
 
 model ApprovalDecision {
-  id          String       @id @default(cuid())
-  requestId   String       @map("request_id")
-  stepIndex   Int          @map("step_index")
-  reviewerId  String       @map("reviewer_id")
-  decision    DecisionType
-  comment     String?
-  createdAt   DateTime     @default(now()) @map("created_at")
+  id         String       @id @default(cuid())
+  requestId  String       @map("request_id")
+  stepIndex  Int          @map("step_index")
+  reviewerId String       @map("reviewer_id")
+  decision   DecisionType
+  comment    String?
+  createdAt  DateTime     @default(now()) @map("created_at")
 
-  request ReviewRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  reviewer User         @relation(fields: [reviewerId], references: [id])
+  request  ReviewRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  reviewer User          @relation(fields: [reviewerId], references: [id])
 
   @@index([requestId])
   @@index([reviewerId])
@@ -856,29 +889,29 @@ model ApprovalDecision {
 }
 
 model ReviewChangeRequest {
-  id             String   @id @default(cuid())
-  requestId      String   @map("request_id")
-  versionFromId  String   @map("version_from_id")
-  versionToId    String   @map("version_to_id")
-  summary        String?
-  status         String   @default("OPEN")
-  createdAt      DateTime @default(now()) @map("created_at")
+  id            String   @id @default(cuid())
+  requestId     String   @map("request_id")
+  versionFromId String   @map("version_from_id")
+  versionToId   String   @map("version_to_id")
+  summary       String?
+  status        String   @default("OPEN")
+  createdAt     DateTime @default(now()) @map("created_at")
 
-  request   ReviewRequest   @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  from      KnowledgeVersion @relation("ChangeFromVersion", fields: [versionFromId], references: [id])
-  to        KnowledgeVersion @relation("ChangeToVersion", fields: [versionToId], references: [id])
+  request ReviewRequest    @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  from    KnowledgeVersion @relation("ChangeFromVersion", fields: [versionFromId], references: [id])
+  to      KnowledgeVersion @relation("ChangeToVersion", fields: [versionToId], references: [id])
 
   @@index([requestId])
   @@map("review_change_requests")
 }
 
 model ReviewEvent {
-  id         String   @id @default(cuid())
-  requestId  String   @map("request_id")
-  actorId    String?  @map("actor_id")
-  type       String
-  metadata   Json     @default("{}")
-  createdAt  DateTime @default(now()) @map("created_at")
+  id        String   @id @default(cuid())
+  requestId String   @map("request_id")
+  actorId   String?  @map("actor_id")
+  type      String
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
 
   request ReviewRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   actor   User?         @relation(fields: [actorId], references: [id])
