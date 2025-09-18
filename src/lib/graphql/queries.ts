@@ -419,57 +419,7 @@ export const GET_POPULAR_TAGS = gql`
   }
 `
 
-// Comment Queries
-export const GET_COMMENTS = gql`
-  query GetComments($knowledgeId: ID!) {
-    comments(knowledgeId: $knowledgeId) {
-      edges {
-        node {
-          id
-          content
-          positionData
-          status
-          createdAt
-          updatedAt
-
-          author {
-            id
-            displayName
-            avatarUrl
-          }
-
-          parent {
-            id
-            content
-            author {
-              id
-              displayName
-            }
-          }
-
-          replies {
-            id
-            content
-            createdAt
-            author {
-              id
-              displayName
-              avatarUrl
-            }
-          }
-        }
-        cursor
-      }
-      pageInfo {
-        hasNextPage
-        hasPreviousPage
-        startCursor
-        endCursor
-      }
-      totalCount
-    }
-  }
-`
+// Comment Queries - Duplicate removed (see line 192 for actual implementation)
 
 // Collaboration Queries
 export const GET_ACTIVE_COLLABORATORS = gql`

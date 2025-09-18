@@ -24,6 +24,10 @@ Scope: Data contracts and service boundaries for algorithms in `src/server/modul
 - GET /api/recommendations/trending?workspace={id}
   - returns: `{ tags: TrendingTopic[], items: Scored<IndexDocument>[] }`
 
+- GET /api/recommendations/summary?workspace={id}&limit=20
+  - returns: `{ personalized, trending, gaps, experts, duplicates }`
+  - personalized limit defaults to 20 (same as engine); remaining sections are internally capped
+
 - GET /api/recommendations/gaps?workspace={id}
   - returns: `{ underexposedTags: {tagId, deficit}[], recommendations: Scored<IndexDocument>[] }`
 

@@ -1,0 +1,504 @@
+name: Production Deployment Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+      skip_tests:
+        description: 'Skip tests (emergency deployment)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: knowledge-network
+  EKS_CLUSTER_NAME: knowledge-network-production
+  NODE_VERSION: '20.x'
+  BUN_VERSION: 'latest'
+
+jobs:
+  # Security Scanning
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy Security Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy Results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Dependency Audit
+        run: |
+          npm audit --audit-level=moderate
+
+      - name: OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'Knowledge Network'
+          path: '.'
+          format: 'HTML'
+
+  # Build and Test
+  build-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.skip_tests }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache Dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.bun
+            node_modules
+            .next/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run Linting
+        run: |
+          bun run lint
+          bun run type-check
+
+      - name: Run Tests
+        run: |
+          bun run test:coverage
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/coverage-final.json
+          flags: unittests
+          name: codecov-umbrella
+
+      - name: Build Application
+        run: |
+          bun run build
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: |
+            .next
+            public
+          retention-days: 7
+
+  # Performance Testing
+  performance-test:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    needs: build-test
+    if: ${{ !inputs.skip_tests }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install Dependencies
+        run: bun install --production
+
+      - name: Start Application
+        run: |
+          bun run start &
+          sleep 15
+        env:
+          NODE_ENV: production
+
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          urls: |
+            http://localhost:3000
+            http://localhost:3000/api/health
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+
+      - name: Run K6 Load Tests
+        uses: grafana/k6-action@v0.3.0
+        with:
+          filename: tests/load/k6-test.js
+          flags: --vus 100 --duration 5m
+
+  # Docker Build and Push
+  docker-build:
+    name: Docker Build and Push
+    runs-on: ubuntu-latest
+    needs: [security-scan, build-test]
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker Meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ github.run_number }}
+
+      - name: Build and Push Docker Image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_VERSION=${{ github.sha }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+          platforms: linux/amd64,linux/arm64
+          provenance: true
+          sbom: true
+
+      - name: Scan Docker Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.meta.outputs.tags }}
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+  # Database Migration
+  database-migration:
+    name: Database Migration
+    runs-on: ubuntu-latest
+    needs: docker-build
+    environment: production
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install Dependencies
+        run: bun install --production
+
+      - name: Get Database Secret
+        id: db-secret
+        run: |
+          SECRET=$(aws secretsmanager get-secret-value \
+            --secret-id knowledge-network-production-db-master-password \
+            --query SecretString \
+            --output text)
+          echo "::add-mask::$SECRET"
+          echo "DATABASE_URL=postgresql://$(echo $SECRET | jq -r '.username'):$(echo $SECRET | jq -r '.password')@$(echo $SECRET | jq -r '.host'):5432/$(echo $SECRET | jq -r '.dbname')" >> $GITHUB_ENV
+
+      - name: Run Database Migrations
+        run: |
+          bunx prisma migrate deploy
+          bunx prisma db seed
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+  # Deploy to Kubernetes
+  deploy-kubernetes:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: [docker-build, database-migration]
+    environment:
+      name: production
+      url: https://knowledge-network.app
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name ${{ env.EKS_CLUSTER_NAME }}
+
+      - name: Deploy to Kubernetes
+        run: |
+          # Update image tags in deployment manifests
+          IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
+
+          # Apply configurations
+          kubectl apply -f infrastructure/kubernetes/base/namespace.yaml
+          kubectl apply -f infrastructure/kubernetes/base/configmap.yaml
+          kubectl apply -f infrastructure/kubernetes/base/secrets.yaml
+
+          # Update deployments with new image
+          kubectl set image deployment/knowledge-network-frontend \
+            frontend=$IMAGE_TAG \
+            -n knowledge-network
+
+          kubectl set image deployment/knowledge-network-api \
+            api=$IMAGE_TAG \
+            -n knowledge-network
+
+          kubectl set image deployment/knowledge-network-websocket \
+            websocket=$IMAGE_TAG \
+            -n knowledge-network
+
+          # Apply remaining configurations
+          kubectl apply -f infrastructure/kubernetes/base/service.yaml
+          kubectl apply -f infrastructure/kubernetes/base/ingress.yaml
+          kubectl apply -f infrastructure/kubernetes/base/hpa.yaml
+
+          # Wait for rollout to complete
+          kubectl rollout status deployment/knowledge-network-frontend -n knowledge-network --timeout=10m
+          kubectl rollout status deployment/knowledge-network-api -n knowledge-network --timeout=10m
+          kubectl rollout status deployment/knowledge-network-websocket -n knowledge-network --timeout=10m
+
+      - name: Verify Deployment
+        run: |
+          # Check pod status
+          kubectl get pods -n knowledge-network
+
+          # Check service endpoints
+          kubectl get endpoints -n knowledge-network
+
+          # Run smoke tests
+          kubectl run smoke-test \
+            --image=curlimages/curl:latest \
+            --rm -i --restart=Never \
+            -- curl -f http://knowledge-network-frontend.knowledge-network.svc.cluster.local/api/health
+
+  # Health Checks
+  health-check:
+    name: Production Health Check
+    runs-on: ubuntu-latest
+    needs: deploy-kubernetes
+    steps:
+      - name: Wait for Application
+        run: sleep 60
+
+      - name: Health Check - Frontend
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://knowledge-network.app/api/health)
+          if [ $response -ne 200 ]; then
+            echo "Health check failed with status $response"
+            exit 1
+          fi
+
+      - name: Health Check - API
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://api.knowledge-network.app/health)
+          if [ $response -ne 200 ]; then
+            echo "API health check failed with status $response"
+            exit 1
+          fi
+
+      - name: Health Check - WebSocket
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://ws.knowledge-network.app/health)
+          if [ $response -ne 200 ]; then
+            echo "WebSocket health check failed with status $response"
+            exit 1
+          fi
+
+      - name: Run E2E Tests
+        uses: cypress-io/github-action@v6
+        with:
+          config: baseUrl=https://knowledge-network.app
+          record: true
+        env:
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+
+  # Monitoring Setup
+  monitoring-setup:
+    name: Configure Monitoring
+    runs-on: ubuntu-latest
+    needs: deploy-kubernetes
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Create CloudWatch Dashboard
+        run: |
+          aws cloudwatch put-dashboard \
+            --dashboard-name knowledge-network-production \
+            --dashboard-body file://infrastructure/monitoring/cloudwatch-dashboard.json
+
+      - name: Setup Alarms
+        run: |
+          # CPU Utilization Alarm
+          aws cloudwatch put-metric-alarm \
+            --alarm-name knowledge-network-cpu-high \
+            --alarm-description "Alarm when CPU exceeds 80%" \
+            --metric-name CPUUtilization \
+            --namespace AWS/EKS \
+            --statistic Average \
+            --period 300 \
+            --threshold 80 \
+            --comparison-operator GreaterThanThreshold \
+            --evaluation-periods 2
+
+      - name: Configure DataDog
+        run: |
+          kubectl apply -f infrastructure/monitoring/datadog-agent.yaml
+
+  # Notification
+  notify:
+    name: Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [health-check, monitoring-setup]
+    if: always()
+    steps:
+      - name: Slack Notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          custom_payload: |
+            {
+              "channel": "#deployments",
+              "attachments": [{
+                "color": "${{ job.status == 'success' && 'good' || 'danger' }}",
+                "title": "Production Deployment ${{ job.status == 'success' && 'Successful' || 'Failed' }}",
+                "text": "Deployment to production environment",
+                "fields": [
+                  {
+                    "title": "Environment",
+                    "value": "Production",
+                    "short": true
+                  },
+                  {
+                    "title": "Version",
+                    "value": "${{ github.sha }}",
+                    "short": true
+                  },
+                  {
+                    "title": "Triggered By",
+                    "value": "${{ github.actor }}",
+                    "short": true
+                  },
+                  {
+                    "title": "Workflow",
+                    "value": "${{ github.workflow }}",
+                    "short": true
+                  }
+                ],
+                "footer": "Knowledge Network",
+                "footer_icon": "https://github.githubassets.com/favicon.ico",
+                "ts": ${{ github.event.head_commit.timestamp }}
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Create GitHub Release
+        if: success() && github.ref == 'refs/heads/main'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Production Release v${{ github.run_number }}
+          body: |
+            ## Production Deployment
+
+            **Version**: ${{ github.sha }}
+            **Environment**: Production
+            **Deployed By**: ${{ github.actor }}
+            **Deployment Time**: ${{ github.event.head_commit.timestamp }}
+
+            ### Changes
+            ${{ github.event.head_commit.message }}
+
+            ### Deployment Artifacts
+            - Docker Image: ${{ needs.docker-build.outputs.image-tag }}
+            - Image Digest: ${{ needs.docker-build.outputs.image-digest }}
+
+            ### Links
+            - [Production Site](https://knowledge-network.app)
+            - [API Endpoint](https://api.knowledge-network.app)
+            - [Monitoring Dashboard](https://cloudwatch.amazonaws.com/dashboard/knowledge-network-production)
+          draft: false
+          prerelease: false

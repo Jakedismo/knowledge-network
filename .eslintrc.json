@@ -1,19 +1,26 @@
 {
   "extends": [
-    "next/core-web-vitals"
+    "next/core-web-vitals",
+    "plugin:storybook/recommended"
   ],
   "rules": {
     "no-console": "warn"
   },
   "overrides": [
     {
-      "files": ["**/*.stories.*", "src/stories/**/*"],
+      "files": [
+        "**/*.stories.*",
+        "src/stories/**/*"
+      ],
       "rules": {
         "react-hooks/rules-of-hooks": "off"
       }
     },
     {
-      "files": ["src/app/api/**/*.ts", "src/server/**/*.ts"],
+      "files": [
+        "src/app/api/**/*.ts",
+        "src/server/**/*.ts"
+      ],
       "rules": {
         // server-side logs can be useful; keep as warnings already set globally
         "require-await": "off"

@@ -1,6 +1,8 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { ApolloClientProvider } from '@/components/providers/ApolloClientProvider'
+import { MobileBottomNav } from '@/components/mobile/MobileBottomNav'
+import { InstallPrompt } from '@/components/pwa/InstallPrompt'
 
 export const metadata: Metadata = {
   title: {
@@ -8,9 +10,10 @@ export const metadata: Metadata = {
     template: '%s | Knowledge Network',
   },
   description: 'AI-powered enterprise knowledge management platform with real-time collaboration and intelligent discovery.',
-  keywords: ['knowledge management', 'AI', 'collaboration', 'enterprise', 'productivity'],
+  keywords: ['knowledge management', 'AI', 'collaboration', 'enterprise', 'productivity', 'PWA', 'mobile'],
   authors: [{ name: 'Knowledge Network Team' }],
   creator: 'Knowledge Network',
+  manifest: '/manifest.json',
   openGraph: {
     type: 'website',
     locale: 'en_US',
@@ -39,6 +42,19 @@ export const metadata: Metadata = {
   verification: {
     google: 'google-site-verification-code',
   },
+  icons: {
+    icon: '/icons/icon-192x192.png',
+    apple: '/icons/icon-192x192.png',
+  },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#8B5CF6',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({
@@ -48,12 +64,20 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="KnowNet" />
+        <meta name="mobile-web-app-capable" content="yes" />
+      </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
         <ApolloClientProvider>
-          <div className="relative flex min-h-screen flex-col">
+          <div className="relative flex min-h-screen flex-col pb-16 md:pb-0">
             <div className="flex-1">
               {children}
             </div>
+            <MobileBottomNav />
+            <InstallPrompt variant="toast" autoShow={true} showDelay={30000} />
           </div>
         </ApolloClientProvider>
       </body>

@@ -32,5 +32,13 @@ describe('RecommendationService (demo data)', () => {
     expect(dupes.length).toBeGreaterThan(0)
     expect(new Set(dupes[0].memberIds).size).toBeGreaterThan(1)
   })
-})
 
+  it('builds a combined summary payload', async () => {
+    const summary = await service.summary({ userId, workspaceId, options: { maxResults: 5 } })
+    expect(summary.personalized.length).toBeGreaterThan(0)
+    expect(summary.trending.topics.length).toBeGreaterThanOrEqual(0)
+    expect(Array.isArray(summary.gaps.recommendations)).toBe(true)
+    expect(Array.isArray(summary.experts)).toBe(true)
+    expect(Array.isArray(summary.duplicates)).toBe(true)
+  })
+})

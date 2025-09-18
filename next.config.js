@@ -1,5 +1,70 @@
 const path = require('path');
 
+// PWA configuration - temporarily simplified for compatibility
+const withPWA = process.env.NODE_ENV === 'production'
+  ? require('next-pwa')({
+      dest: 'public',
+      register: true,
+      skipWaiting: true,
+      disable: false,
+      buildExcludes: [/middleware-manifest\.json$/],
+      scope: '/',
+      sw: 'service-worker.js',
+      fallbacks: {
+        document: '/_offline',
+      },
+      cacheOnFrontEndNav: true,
+      reloadOnOnline: false,
+      runtimeCaching: [
+    {
+      urlPattern: /^https:\/\/fonts\.(gstatic|googleapis)\.com/,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'google-fonts',
+        expiration: {
+          maxEntries: 20,
+          maxAgeSeconds: 365 * 24 * 60 * 60, // 1 year
+        },
+      },
+    },
+    {
+      urlPattern: /\/_next\/static.+\.js$/,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'next-static-js',
+        expiration: {
+          maxEntries: 50,
+          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+        },
+      },
+    },
+    {
+      urlPattern: /\/_next\/image/,
+      handler: 'StaleWhileRevalidate',
+      options: {
+        cacheName: 'next-images',
+        expiration: {
+          maxEntries: 100,
+          maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
+        },
+      },
+    },
+    {
+      urlPattern: /\/api\//,
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'api-cache',
+        networkTimeoutSeconds: 10,
+        expiration: {
+          maxEntries: 50,
+          maxAgeSeconds: 5 * 60, // 5 minutes
+        },
+      },
+    },
+  ],
+    })
+  : (config) => config; // Pass through config in development
+
 const applyOptionalAliases = (config) => {
   if (!config.resolve) config.resolve = {};
   if (!config.resolve.alias) config.resolve.alias = {};
@@ -114,4 +179,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withPWA(nextConfig);

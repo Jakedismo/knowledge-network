@@ -41,25 +41,19 @@ interface DuplicatesResponse {
   duplicates: Array<{ representativeId: string; memberIds: string[]; similarity: number }>
 }
 
-interface WidgetState {
-  personalized: PersonalizedResponse | null
-  trending: TrendingResponse | null
-  gaps: GapsResponse | null
-  experts: ExpertsResponse | null
-  duplicates: DuplicatesResponse | null
+interface SummaryResponse {
+  personalized: ScoredDocument[]
+  trending: TrendingResponse
+  gaps: GapsResponse
+  experts: ExpertsResponse['experts']
+  duplicates: DuplicatesResponse['duplicates']
 }
 
-const initialState: WidgetState = {
-  personalized: null,
-  trending: null,
-  gaps: null,
-  experts: null,
-  duplicates: null,
-}
+type WidgetState = SummaryResponse | null
 
 export function RecommendationsWidget() {
   const auth = useAuth()
-  const [state, setState] = useState<WidgetState>(initialState)
+  const [state, setState] = useState<WidgetState>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -83,19 +77,12 @@ export function RecommendationsWidget() {
     setError(null)
 
     try {
-      const [personalized, trending, gaps, experts, duplicates] = await Promise.all([
-        fetchJson<PersonalizedResponse>(`/api/recommendations/personalized`, { workspace: workspaceId, limit: '5' }, accessToken),
-        fetchJson<TrendingResponse>(`/api/recommendations/trending`, { workspace: workspaceId }, accessToken),
-        fetchJson<GapsResponse>(`/api/recommendations/gaps`, { workspace: workspaceId }, accessToken),
-        fetchJson<ExpertsResponse>(`/api/recommendations/experts`, { workspace: workspaceId }, accessToken),
-        fetchJson<DuplicatesResponse>(`/api/recommendations/duplicates`, { workspace: workspaceId }, accessToken),
-      ])
-
-      setState({ personalized, trending, gaps, experts, duplicates })
+      const summary = await fetchJson<SummaryResponse>(`/api/recommendations/summary`, { workspace: workspaceId, limit: '10' }, accessToken)
+      setState(summary)
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
         setError((err as Error).message ?? 'Failed to load recommendations.')
-        setState(initialState)
+        setState(null)
       }
     } finally {
       setLoading(false)
@@ -134,7 +121,7 @@ export function RecommendationsWidget() {
             <CardTitle id="personalized-heading">For you</CardTitle>
           </CardHeader>
           <CardContent>
-            <RecommendationList items={state.personalized?.items ?? []} loading={loading} emptyMessage="No personalized items yet." />
+            <RecommendationList items={state?.personalized ?? []} loading={loading} emptyMessage="No personalized items yet." />
           </CardContent>
         </Card>
         <Card>
@@ -142,9 +129,9 @@ export function RecommendationsWidget() {
             <CardTitle>Trending topics</CardTitle>
           </CardHeader>
           <CardContent>
-            <TrendingTopics topics={state.trending?.topics ?? []} loading={loading} />
+            <TrendingTopics topics={state?.trending.topics ?? []} loading={loading} />
             <div className="mt-4 space-y-3">
-              <RecommendationList items={state.trending?.items?.slice(0, 5) ?? []} loading={loading} emptyMessage="No trending documents yet." />
+              <RecommendationList items={state?.trending.items.slice(0, 5) ?? []} loading={loading} emptyMessage="No trending documents yet." />
             </div>
           </CardContent>
         </Card>
@@ -156,9 +143,9 @@ export function RecommendationsWidget() {
             <CardTitle id="gaps-experts">Mind the gaps</CardTitle>
           </CardHeader>
           <CardContent>
-            <GapBadges tags={state.gaps?.underexposedTags ?? []} loading={loading} />
+            <GapBadges tags={state?.gaps.underexposedTags ?? []} loading={loading} />
             <div className="mt-4">
-              <RecommendationList items={state.gaps?.recommendations.slice(0, 5) ?? []} loading={loading} emptyMessage="No gap-filling items yet." />
+              <RecommendationList items={state?.gaps.recommendations.slice(0, 5) ?? []} loading={loading} emptyMessage="No gap-filling items yet." />
             </div>
           </CardContent>
         </Card>
@@ -167,7 +154,7 @@ export function RecommendationsWidget() {
             <CardTitle>Experts in workspace</CardTitle>
           </CardHeader>
           <CardContent>
-            <ExpertsList experts={state.experts?.experts ?? []} loading={loading} />
+            <ExpertsList experts={state?.experts ?? []} loading={loading} />
           </CardContent>
         </Card>
       </section>
@@ -178,7 +165,7 @@ export function RecommendationsWidget() {
             <CardTitle id="duplicates-heading">Potential duplicates</CardTitle>
           </CardHeader>
           <CardContent>
-            <DuplicateList duplicates={state.duplicates?.duplicates ?? []} loading={loading} />
+            <DuplicateList duplicates={state?.duplicates ?? []} loading={loading} />
           </CardContent>
         </Card>
       </section>
@@ -226,7 +213,7 @@ function RecommendationList({ items, loading, emptyMessage }: { items: ScoredDoc
   )
 }
 
-function TrendingTopics({ topics, loading }: { topics: TrendingResponse['topics']; loading: boolean }) {
+function TrendingTopics({ topics, loading }: { topics: SummaryResponse['trending']['topics']; loading: boolean }) {
   if (loading && !topics.length) {
     return <SkeletonBadges count={4} />
   }
@@ -245,7 +232,7 @@ function TrendingTopics({ topics, loading }: { topics: TrendingResponse['topics'
   )
 }
 
-function GapBadges({ tags, loading }: { tags: Array<{ tagId: string; deficit: number }>; loading: boolean }) {
+function GapBadges({ tags, loading }: { tags: SummaryResponse['gaps']['underexposedTags']; loading: boolean }) {
   if (loading && !tags.length) {
     return <SkeletonBadges count={4} />
   }
@@ -263,7 +250,7 @@ function GapBadges({ tags, loading }: { tags: Array<{ tagId: string; deficit: nu
   )
 }
 
-function ExpertsList({ experts, loading }: { experts: ExpertsResponse['experts']; loading: boolean }) {
+function ExpertsList({ experts, loading }: { experts: SummaryResponse['experts']; loading: boolean }) {
   if (loading && !experts.length) {
     return <SkeletonRows count={3} />
   }
@@ -288,7 +275,7 @@ function ExpertsList({ experts, loading }: { experts: ExpertsResponse['experts']
   )
 }
 
-function DuplicateList({ duplicates, loading }: { duplicates: DuplicatesResponse['duplicates']; loading: boolean }) {
+function DuplicateList({ duplicates, loading }: { duplicates: SummaryResponse['duplicates']; loading: boolean }) {
   if (loading && !duplicates.length) {
     return <SkeletonRows count={2} />
   }

@@ -14,11 +14,24 @@ export const parameters = {
 
 export const decorators = [
   (Story, context) => {
-    const theme = context.globals?.theme || 'light'
+    const theme = context.globals?.theme === 'dark' ? 'dark' : 'light'
+
+    if (typeof document !== 'undefined') {
+      document.body.classList.toggle('dark', theme === 'dark')
+
+      const frame = document.getElementById('storybook-preview-iframe')
+      const contentDoc = frame && frame instanceof HTMLIFrameElement ? frame.contentDocument : null
+      if (contentDoc) {
+        contentDoc.documentElement.classList.toggle('dark', theme === 'dark')
+        contentDoc.body.style.background = 'hsl(var(--background))'
+        contentDoc.body.style.color = 'hsl(var(--foreground))'
+      }
+    }
+
     return (
-      <div className={theme === 'dark' ? 'dark' : ''}>
+      <div className={`${theme === 'dark' ? 'dark' : ''} theme-transition`}>
         <div className="min-h-screen bg-background text-foreground p-4">
-          <Story />
+          <Story {...context} />
         </div>
       </div>
     )

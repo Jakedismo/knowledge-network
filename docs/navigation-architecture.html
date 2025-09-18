@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knowledge Network - Navigation Architecture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #8B5CF6 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 50px;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #8B5CF6;
+        }
+
+        .layout-preview {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .layout-grid {
+            display: grid;
+            grid-template-areas:
+                "header header"
+                "sidebar main";
+            grid-template-columns: 250px 1fr;
+            grid-template-rows: 60px 1fr;
+            height: 400px;
+            gap: 10px;
+        }
+
+        .layout-header {
+            grid-area: header;
+            background: #8B5CF6;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            color: white;
+        }
+
+        .layout-sidebar {
+            grid-area: sidebar;
+            background: #f1f3f5;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .layout-main {
+            grid-area: main;
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .nav-tree {
+            list-style: none;
+        }
+
+        .nav-tree li {
+            margin-bottom: 15px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .nav-item:hover {
+            background: #f8f9fa;
+            transform: translateX(5px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .nav-item.primary {
+            border-left: 3px solid #8B5CF6;
+        }
+
+        .nav-item.secondary {
+            border-left: 3px solid #64748b;
+        }
+
+        .nav-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            background: #8B5CF6;
+            border-radius: 4px;
+        }
+
+        .nav-children {
+            margin-left: 32px;
+            margin-top: 10px;
+            list-style: none;
+        }
+
+        .nav-children .nav-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            font-size: 0.9em;
+        }
+
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .flow-step {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            border: 2px solid #8B5CF6;
+            min-width: 120px;
+            transition: transform 0.3s;
+        }
+
+        .flow-step:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(139, 92, 246, 0.3);
+        }
+
+        .flow-arrow {
+            width: 40px;
+            height: 2px;
+            background: #8B5CF6;
+            position: relative;
+        }
+
+        .flow-arrow::after {
+            content: '';
+            position: absolute;
+            right: -8px;
+            top: -4px;
+            width: 0;
+            height: 0;
+            border-left: 10px solid #8B5CF6;
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .feature-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-color: #8B5CF6;
+        }
+
+        .feature-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #8B5CF6, #764ba2);
+            border-radius: 10px;
+            margin: 0 auto 15px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #8B5CF6;
+            color: white;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+
+        .mobile-nav {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            border-radius: 20px;
+            padding: 15px 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        .mobile-nav-items {
+            display: flex;
+            gap: 30px;
+        }
+
+        .mobile-nav-item {
+            width: 40px;
+            height: 40px;
+            background: #f1f3f5;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .mobile-nav-item:hover {
+            background: #8B5CF6;
+            transform: scale(1.1);
+        }
+
+        @media (max-width: 768px) {
+            .layout-grid {
+                grid-template-areas:
+                    "header"
+                    "main";
+                grid-template-columns: 1fr;
+                grid-template-rows: 60px 1fr;
+            }
+
+            .layout-sidebar {
+                display: none;
+            }
+
+            .mobile-nav {
+                display: block;
+            }
+        }
+
+        .interactive-btn {
+            background: #8B5CF6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1em;
+            margin: 10px;
+        }
+
+        .interactive-btn:hover {
+            background: #764ba2;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Knowledge Network Navigation Architecture</h1>
+            <p class="subtitle">Unified UX Design for Seamless User Experience</p>
+        </div>
+
+        <div class="content">
+            <!-- Layout Structure Section -->
+            <div class="section">
+                <h2>📐 Unified Layout Structure</h2>
+                <div class="layout-preview">
+                    <div class="layout-grid">
+                        <div class="layout-header">
+                            <div>🏢 Knowledge Network</div>
+                            <div>🔍 Search | 🔔 | 👤</div>
+                        </div>
+                        <div class="layout-sidebar">
+                            <h4 style="margin-bottom: 15px;">Navigation</h4>
+                            <div style="background: white; padding: 8px; border-radius: 5px; margin-bottom: 10px;">📊 Dashboard</div>
+                            <div style="background: white; padding: 8px; border-radius: 5px; margin-bottom: 10px;">📚 Knowledge</div>
+                            <div style="background: white; padding: 8px; border-radius: 5px; margin-bottom: 10px;">✏️ Editor</div>
+                            <div style="background: white; padding: 8px; border-radius: 5px; margin-bottom: 10px;">🔍 Search</div>
+                            <div style="background: white; padding: 8px; border-radius: 5px; margin-bottom: 10px;">📈 Analytics</div>
+                            <div style="background: white; padding: 8px; border-radius: 5px; margin-bottom: 10px;">🤖 AI Assistant</div>
+                        </div>
+                        <div class="layout-main">
+                            <h3>Main Content Area</h3>
+                            <p style="margin-top: 10px; color: #666;">Dynamic content based on route</p>
+                            <div style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                                <p>• Breadcrumbs</p>
+                                <p>• Page content</p>
+                                <p>• Contextual actions</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <p style="text-align: center; color: #666; margin-top: 20px;">
+                    <em>Responsive layout adapts to mobile with bottom navigation</em>
+                </p>
+            </div>
+
+            <!-- Navigation Hierarchy Section -->
+            <div class="section">
+                <h2>🗂️ Navigation Hierarchy</h2>
+                <ul class="nav-tree">
+                    <li>
+                        <div class="nav-item primary">
+                            <div class="nav-icon"></div>
+                            <span>Dashboard</span>
+                            <span class="badge">Home</span>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="nav-item primary" onclick="toggleChildren('knowledge')">
+                            <div class="nav-icon"></div>
+                            <span>Knowledge Base ▾</span>
+                        </div>
+                        <ul class="nav-children" id="knowledge" style="display: block;">
+                            <li><div class="nav-item">📄 Documents</div></li>
+                            <li><div class="nav-item">📁 Collections</div></li>
+                            <li><div class="nav-item">📝 Templates</div></li>
+                            <li><div class="nav-item">🏷️ Tags</div></li>
+                        </ul>
+                    </li>
+                    <li>
+                        <div class="nav-item primary">
+                            <div class="nav-icon"></div>
+                            <span>Editor</span>
+                            <span class="badge">Quick</span>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="nav-item primary">
+                            <div class="nav-icon"></div>
+                            <span>Search</span>
+                            <span class="badge">Cmd+K</span>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="nav-item primary" onclick="toggleChildren('analytics')">
+                            <div class="nav-icon"></div>
+                            <span>Analytics ▾</span>
+                        </div>
+                        <ul class="nav-children" id="analytics">
+                            <li><div class="nav-item">📊 Overview</div></li>
+                            <li><div class="nav-item">📈 Reports</div></li>
+                            <li><div class="nav-item">💡 Insights</div></li>
+                        </ul>
+                    </li>
+                    <li>
+                        <div class="nav-item primary">
+                            <div class="nav-icon"></div>
+                            <span>AI Assistant</span>
+                            <span class="badge">AI</span>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="nav-item secondary">
+                            <div class="nav-icon" style="background: #64748b;"></div>
+                            <span>Settings</span>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- User Flows Section -->
+            <div class="section">
+                <h2>🚀 Key User Flows</h2>
+
+                <h3 style="margin-top: 30px; margin-bottom: 20px;">Document Creation Flow</h3>
+                <div class="flow-diagram">
+                    <div class="flow-step">Quick Action</div>
+                    <div class="flow-arrow"></div>
+                    <div class="flow-step">Template Select</div>
+                    <div class="flow-arrow"></div>
+                    <div class="flow-step">Editor</div>
+                    <div class="flow-arrow"></div>
+                    <div class="flow-step">Auto-save</div>
+                    <div class="flow-arrow"></div>
+                    <div class="flow-step">Organize</div>
+                </div>
+
+                <h3 style="margin-top: 30px; margin-bottom: 20px;">Search & Discovery Flow</h3>
+                <div class="flow-diagram">
+                    <div class="flow-step">Global Search</div>
+                    <div class="flow-arrow"></div>
+                    <div class="flow-step">AI Filter</div>
+                    <div class="flow-arrow"></div>
+                    <div class="flow-step">Results</div>
+                    <div class="flow-arrow"></div>
+                    <div class="flow-step">Preview</div>
+                    <div class="flow-arrow"></div>
+                    <div class="flow-step">Open/Edit</div>
+                </div>
+            </div>
+
+            <!-- Feature Integration Section -->
+            <div class="section">
+                <h2>🔗 Feature Integration Map</h2>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon"></div>
+                        <h4>Rich Editor</h4>
+                        <p style="color: #666; margin-top: 10px;">Markdown, LaTeX, Media</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon"></div>
+                        <h4>Collaboration</h4>
+                        <p style="color: #666; margin-top: 10px;">Real-time, Comments</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon"></div>
+                        <h4>AI Assistant</h4>
+                        <p style="color: #666; margin-top: 10px;">Chat, Research, Facts</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon"></div>
+                        <h4>Analytics</h4>
+                        <p style="color: #666; margin-top: 10px;">Insights, Reports</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon"></div>
+                        <h4>Search</h4>
+                        <p style="color: #666; margin-top: 10px;">Semantic, Filters</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon"></div>
+                        <h4>Templates</h4>
+                        <p style="color: #666; margin-top: 10px;">Library, Custom</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon"></div>
+                        <h4>Mobile PWA</h4>
+                        <p style="color: #666; margin-top: 10px;">Offline, Sync</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon"></div>
+                        <h4>Organization</h4>
+                        <p style="color: #666; margin-top: 10px;">Hierarchy, Tags</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interactive Demo Section -->
+            <div class="section" style="text-align: center; background: #f8f9fa; padding: 40px; border-radius: 10px;">
+                <h2 style="border: none;">🎯 Interactive Elements</h2>
+                <p style="margin-bottom: 30px; color: #666;">Experience the unified navigation design</p>
+                <button class="interactive-btn" onclick="showMobileView()">📱 Mobile View</button>
+                <button class="interactive-btn" onclick="showDesktopView()">🖥️ Desktop View</button>
+                <button class="interactive-btn" onclick="simulateNavigation()">🚀 Simulate Navigation</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Navigation Preview -->
+    <div class="mobile-nav" id="mobileNav">
+        <div class="mobile-nav-items">
+            <div class="mobile-nav-item">🏠</div>
+            <div class="mobile-nav-item">🔍</div>
+            <div class="mobile-nav-item" style="background: #8B5CF6; color: white;">➕</div>
+            <div class="mobile-nav-item">📄</div>
+            <div class="mobile-nav-item">👤</div>
+        </div>
+    </div>
+
+    <script>
+        function toggleChildren(id) {
+            const element = document.getElementById(id);
+            element.style.display = element.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function showMobileView() {
+            document.querySelector('.layout-sidebar').style.display = 'none';
+            document.querySelector('.layout-grid').style.gridTemplateAreas = '"header" "main"';
+            document.querySelector('.layout-grid').style.gridTemplateColumns = '1fr';
+            document.getElementById('mobileNav').style.display = 'block';
+        }
+
+        function showDesktopView() {
+            document.querySelector('.layout-sidebar').style.display = 'block';
+            document.querySelector('.layout-grid').style.gridTemplateAreas = '"header header" "sidebar main"';
+            document.querySelector('.layout-grid').style.gridTemplateColumns = '250px 1fr';
+            document.getElementById('mobileNav').style.display = 'none';
+        }
+
+        function simulateNavigation() {
+            const items = document.querySelectorAll('.nav-item.primary');
+            let index = 0;
+
+            const interval = setInterval(() => {
+                items.forEach(item => item.style.background = 'white');
+                if (index < items.length) {
+                    items[index].style.background = '#f0e9ff';
+                    items[index].style.transform = 'scale(1.02)';
+                    setTimeout(() => {
+                        items[index].style.transform = 'scale(1)';
+                    }, 300);
+                    index++;
+                } else {
+                    clearInterval(interval);
+                    items.forEach(item => item.style.background = 'white');
+                }
+            }, 500);
+        }
+    </script>
+</body>
+</html>

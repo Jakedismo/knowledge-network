@@ -1,5 +1,7 @@
-"use client"
+'use client'
+
 import React from 'react'
+import { AppLayout } from '@/components/layout/AppLayout'
 import { Editor } from '@/components/editor'
 import { registerTemplateEditorPlugin } from '@/lib/templates/register-editor-plugin'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -19,7 +21,7 @@ export default function EditorPage() {
   ] as const
 
   return (
-    <main className="container mx-auto max-w-6xl py-8">
+    <AppLayout>
       <div className={ORG_UI ? 'grid grid-cols-1 gap-6 md:grid-cols-3' : ''}>
         <div className={ORG_UI ? 'md:col-span-2' : ''}>
           <Card>
@@ -55,6 +57,6 @@ export default function EditorPage() {
           </aside>
         )}
       </div>
-    </main>
+    </AppLayout>
   )
 }

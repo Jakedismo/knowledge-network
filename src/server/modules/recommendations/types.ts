@@ -63,3 +63,16 @@ export interface ExpertiseProfile {
 
 export type Content = IndexDocument
 
+export interface RecommendationSummary {
+  personalized: Scored<Content>[]
+  trending: {
+    topics: TrendingTopic[]
+    items: Scored<Content>[]
+  }
+  gaps: {
+    underexposedTags: Array<{ tagId: string; deficit: number }>
+    recommendations: Scored<Content>[]
+  }
+  experts: ExpertiseProfile[]
+  duplicates: DuplicateSet[]
+}

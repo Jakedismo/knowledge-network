@@ -38,7 +38,7 @@ Non-goals (per brief): No chatbot, no external AI service wiring, no heavy conte
 
 - API routes (`/api/recommendations/*`) expose personalized, trending, gaps, experts, related, duplicates, and event recording endpoints with zod validation + JWT enforcement. Access is gated by workspace membership (via `user_workspace_roles`) with admin overrides.
 - Production default uses `PrismaRecommendationDataSource`, which stitches knowledge, embeddings, and activity logs from Postgres. `RECOMMENDATIONS_DATA_SOURCE=memory` retains the seeded demo provider for tests and Storybook.
-- Client-side `<RecommendationsWidget />` fetches through the authenticated REST endpoints and powers `/recommendations`, providing refresh, loading, and error handling states.
+- Client-side `<RecommendationsWidget />` now consumes a single `/api/recommendations/summary` endpoint (personalized + trending + gaps + experts + duplicates) for consistent UI refresh with error handling.
 
 ## Quality
 

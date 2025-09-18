@@ -291,3 +291,15 @@ out/
 
 # Playwright
 .playwright-mcp/
+
+# Ouroboros
+AGENTS.md
+CLAUDE.md
+QWEN.md
+GEMINI.md
+.mao/
+.ouroboros/
+ouroboros-results/
+.holographic-memory/
+.claude/
+SESSION-MEMORY.md
