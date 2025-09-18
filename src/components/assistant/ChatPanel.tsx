@@ -13,12 +13,60 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const formRef = useRef<HTMLFormElement>(null)
+  const streaming = process.env.NEXT_PUBLIC_ASSISTANT_STREAM === 'true'
 
   const send = useCallback(async () => {
+    if (streaming) {
+      const controller = new AbortController()
+      const now = new Date().toISOString()
+      // Optimistically append user message and empty assistant bubble
+      setMessages((prev) => [
+        ...prev,
+        { id: `u:${now}`, role: 'user', content: input, createdAt: now },
+        { id: `a:${now}`, role: 'assistant', content: '', createdAt: now },
+      ])
+      const resp = await fetch('/api/ai/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input: { question: input, context: { documentId, selectionText } }, stream: true }),
+        signal: controller.signal,
+      })
+      if (!resp.ok || !resp.body) {
+        setInput('')
+        return
+      }
+      const reader = resp.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() || ''
+        for (const part of parts) {
+          const lines = part.split('\n')
+          const event = lines.find((l) => l.startsWith('event: '))?.slice(7)
+          const dataLine = lines.find((l) => l.startsWith('data: '))?.slice(6)
+          if (event === 'text' && dataLine) {
+            setMessages((prev) => {
+              const next = [...prev]
+              const last = next[next.length - 1]
+              if (last?.role === 'assistant') {
+                last.content += JSON.parse(dataLine)
+              }
+              return next
+            })
+          }
+        }
+      }
+      setInput('')
+      return
+    }
     const res = await provider.chat({ input, context: { documentId, selectionText } })
     setMessages((prev) => [...prev, ...res.messages])
     setInput('')
-  }, [input, provider, documentId, selectionText])
+  }, [input, provider, documentId, selectionText, streaming])
 
   return (
     <div className="flex h-full w-full flex-col rounded-lg border bg-background">

@@ -1,9 +1,18 @@
 import type { ActivityEvent, Content } from './types'
-import { prisma } from '@/lib/db/prisma'
-import { KnowledgeStatus, ActivityAction } from '@prisma/client'
 import { KnowledgeStatus as SearchKnowledgeStatus } from '@/server/modules/search/types'
 
+type PrismaActivityAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'VIEW' | 'SHARE' | 'COMMENT' | 'COLLABORATE'
+
 let eventCounter = 0
+let prismaClient: any | null = null
+
+function getPrisma(): any {
+  if (!prismaClient) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, unicorn/prefer-module
+    prismaClient = require('@/lib/db/prisma').prisma
+  }
+  return prismaClient
+}
 
 export interface RecommendationDataSource {
   listContent(workspaceId: string): Promise<Content[]>
@@ -29,9 +38,10 @@ export class PrismaRecommendationDataSource implements RecommendationDataSource 
   }
 
   async listContent(workspaceId: string): Promise<Content[]> {
-    const statuses = this.includeDrafts ? undefined : [KnowledgeStatus.REVIEW, KnowledgeStatus.PUBLISHED]
+    const statuses = this.includeDrafts ? undefined : ['REVIEW', 'PUBLISHED']
 
-    const rows = await prisma.knowledge.findMany({
+    const db = getPrisma()
+    const rows = (await db.knowledge.findMany({
       where: {
         workspaceId,
         ...(statuses ? { status: { in: statuses } } : {}),
@@ -53,43 +63,55 @@ export class PrismaRecommendationDataSource implements RecommendationDataSource 
         collection: { select: { id: true, name: true } },
         tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
       },
-    })
+    })) as KnowledgeRow[]
 
     const knowledgeIds = rows.map((row) => row.id)
     const embeddings = knowledgeIds.length
-      ? await prisma.knowledgeEmbedding.findMany({ where: { knowledgeId: { in: knowledgeIds } }, select: { knowledgeId: true, embedding: true } })
+      ? ((await db.knowledgeEmbedding.findMany({ where: { knowledgeId: { in: knowledgeIds } }, select: { knowledgeId: true, embedding: true } })) as KnowledgeEmbeddingRow[])
       : []
     const embeddingMap = new Map(embeddings.map((e) => [e.knowledgeId, e.embedding]))
 
-    return rows.map((row) => ({
-      id: row.id,
-      workspaceId: row.workspaceId,
-      title: row.title,
-      content: row.content,
-      excerpt: row.excerpt ?? undefined,
-      status: row.status as unknown as SearchKnowledgeStatus,
-      author: { id: row.author.id, displayName: row.author.displayName },
-      collection: row.collection
-        ? { id: row.collection.id, name: row.collection.name, path: row.collection.name }
-        : undefined,
-      collectionPath: row.collection?.name,
-      tags: row.tags.map((t) => ({ id: t.tag.id, name: t.tag.name, color: t.tag.color ?? undefined })),
-      metadata: (row.metadata as Record<string, unknown>) ?? {},
-      viewCount: row.viewCount,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-      searchVector: embeddingMap.get(row.id) ?? undefined,
-    }))
+    return rows.map((row) => {
+      const tags = row.tags.map((t) => {
+        const tag = { id: t.tag.id, name: t.tag.name } as { id: string; name: string; color?: string }
+        if (t.tag.color) tag.color = t.tag.color
+        return tag
+      })
+
+      const doc: Content = {
+        id: row.id,
+        workspaceId: row.workspaceId,
+        title: row.title,
+        content: row.content,
+        status: row.status as unknown as SearchKnowledgeStatus,
+        author: { id: row.author.id, displayName: row.author.displayName },
+        tags,
+        metadata: (row.metadata as Record<string, unknown>) ?? {},
+        viewCount: row.viewCount,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+      }
+
+      if (row.excerpt) doc.excerpt = row.excerpt
+      if (row.collection) {
+        doc.collection = { id: row.collection.id, name: row.collection.name, path: row.collection.name }
+        doc.collectionPath = row.collection.name
+      }
+      const vector = embeddingMap.get(row.id)
+      if (vector) doc.searchVector = vector
+      return doc
+    })
   }
 
   async listEvents(workspaceId: string): Promise<ActivityEvent[]> {
-    const logs = await prisma.activityLog.findMany({
+    const db = getPrisma()
+    const rows = (await db.activityLog.findMany({
       where: { workspaceId },
       orderBy: { createdAt: 'desc' },
       take: this.maxEvents,
-    })
+    })) as ActivityLogRow[]
 
-    return logs
+    return rows
       .map((log) => mapActivityLogToEvent(log))
       .filter((event): event is ActivityEvent => !!event)
   }
@@ -103,7 +125,8 @@ export class PrismaRecommendationDataSource implements RecommendationDataSource 
       weight: event.weight,
     }
 
-    const created = await prisma.activityLog.create({
+    const db = getPrisma()
+    const created = await db.activityLog.create({
       data: {
         ...(event.id ? { id: event.id } : {}),
         action,
@@ -116,17 +139,18 @@ export class PrismaRecommendationDataSource implements RecommendationDataSource 
       },
     })
 
-    return {
+    const result: ActivityEvent = {
       id: created.id,
       userId: created.userId ?? event.userId,
       workspaceId: created.workspaceId ?? event.workspaceId,
       type: event.type,
-      knowledgeId: event.knowledgeId,
-      authorId: event.authorId,
-      tagIds: event.tagIds,
       timestamp: created.createdAt.getTime(),
-      weight: event.weight,
     }
+    if (event.knowledgeId) result.knowledgeId = event.knowledgeId
+    if (event.authorId) result.authorId = event.authorId
+    if (event.tagIds && event.tagIds.length > 0) result.tagIds = event.tagIds
+    if (typeof event.weight === 'number') result.weight = event.weight
+    return result
   }
 }
 
@@ -157,69 +181,103 @@ export class InMemoryRecommendationDataSource implements RecommendationDataSourc
   }
 }
 
-function mapActivityLogToEvent(log: { id: string; action: ActivityAction; resourceId: string | null; metadata: unknown; userId: string | null; workspaceId: string | null; createdAt: Date }): ActivityEvent | null {
+interface KnowledgeRow {
+  id: string
+  title: string
+  content: string
+  excerpt: string | null
+  status: string
+  viewCount: number
+  createdAt: Date
+  updatedAt: Date
+  metadata: unknown
+  workspaceId: string
+  author: { id: string; displayName: string }
+  collection: { id: string; name: string } | null
+  tags: Array<{ tag: { id: string; name: string; color: string | null } }>
+}
+
+interface KnowledgeEmbeddingRow {
+  knowledgeId: string
+  embedding: number[]
+}
+
+interface ActivityLogRow {
+  id: string
+  action: PrismaActivityAction
+  resourceId: string | null
+  metadata: unknown
+  userId: string | null
+  workspaceId: string | null
+  createdAt: Date
+}
+
+function mapActivityLogToEvent(log: ActivityLogRow): ActivityEvent | null {
   const meta = (log.metadata ?? {}) as Record<string, unknown>
   const eventType = (meta.eventType as ActivityEvent['type']) ?? actionToDefaultEvent(log.action)
   if (!eventType) return null
 
-  const knowledgeId = typeof meta.knowledgeId === 'string' ? meta.knowledgeId : log.resourceId ?? undefined
-  const tagIds = Array.isArray(meta.tagIds) ? (meta.tagIds.filter((x): x is string => typeof x === 'string')) : undefined
-  const authorId = typeof meta.authorId === 'string' ? meta.authorId : undefined
-  const weight = typeof meta.weight === 'number' ? meta.weight : undefined
-  const userId = log.userId ?? (meta.userId as string | undefined) ?? 'system'
-  const workspaceId = log.workspaceId ?? (meta.workspaceId as string | undefined)
+  const userId = log.userId ?? (typeof meta.userId === 'string' ? (meta.userId as string) : 'system')
+  const workspaceId = log.workspaceId ?? (typeof meta.workspaceId === 'string' ? (meta.workspaceId as string) : undefined)
   if (!workspaceId) return null
 
-  return {
+  const event: ActivityEvent = {
     id: log.id,
     userId,
     workspaceId,
     type: eventType,
-    knowledgeId,
-    authorId,
-    tagIds,
     timestamp: log.createdAt.getTime(),
-    weight,
   }
+
+  const knowledgeId = typeof meta.knowledgeId === 'string' ? meta.knowledgeId : log.resourceId ?? undefined
+  if (knowledgeId) event.knowledgeId = knowledgeId
+  const tagIds = Array.isArray(meta.tagIds) ? (meta.tagIds.filter((x): x is string => typeof x === 'string')) : undefined
+  if (tagIds && tagIds.length > 0) event.tagIds = tagIds
+  const authorId = typeof meta.authorId === 'string' ? meta.authorId : undefined
+  if (authorId) event.authorId = authorId
+  const weight = typeof meta.weight === 'number' ? meta.weight : undefined
+  if (typeof weight === 'number' && !Number.isNaN(weight)) event.weight = weight
+
+  return event
 }
 
-function mapEventTypeToAction(type: ActivityEvent['type']): ActivityAction {
+function mapEventTypeToAction(type: ActivityEvent['type']): PrismaActivityAction {
   switch (type) {
     case 'view':
     case 'click':
-      return ActivityAction.VIEW
+      return 'VIEW'
     case 'like':
     case 'save':
-      return ActivityAction.UPDATE
+      return 'UPDATE'
     case 'comment':
-      return ActivityAction.COMMENT
+      return 'COMMENT'
     case 'share':
-      return ActivityAction.SHARE
+      return 'SHARE'
     case 'followAuthor':
     case 'followTag':
-      return ActivityAction.UPDATE
+      return 'UPDATE'
     case 'search':
-      return ActivityAction.CREATE
+      return 'CREATE'
     default:
-      return ActivityAction.UPDATE
+      return 'UPDATE'
   }
 }
 
-function actionToDefaultEvent(action: ActivityAction): ActivityEvent['type'] | null {
+function actionToDefaultEvent(action: PrismaActivityAction): ActivityEvent['type'] | null {
   switch (action) {
-    case ActivityAction.VIEW:
+    case 'VIEW':
       return 'view'
-    case ActivityAction.SHARE:
+    case 'SHARE':
       return 'share'
-    case ActivityAction.COMMENT:
+    case 'COMMENT':
       return 'comment'
-    case ActivityAction.CREATE:
+    case 'CREATE':
       return 'view'
-    case ActivityAction.UPDATE:
+    case 'UPDATE':
       return 'view'
-    case ActivityAction.DELETE:
+    case 'DELETE':
       return 'view'
-    case ActivityAction.COLLABORATE:
+    case 'COLLABORATE':
       return 'view'
     default:
       return null

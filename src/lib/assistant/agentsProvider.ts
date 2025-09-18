@@ -74,14 +74,16 @@ export class AgentsAssistantProvider implements AssistantProvider {
   }
 
   async factCheck(input: FactCheckClaim): Promise<FactCheckResponse> {
-    const instructions = [
-      'Fact-check the claim against known context. Output JSON with keys: claim, finding:{status:"supported|contradicted|uncertain", evidence:[{id,title,snippet,url?}] }',
-      'Be conservative; prefer uncertain if ambiguous. Return ONLY JSON.',
-    ].join(' ')
-    const out = await postExecute({ instructions, input })
-    const parsed = tryParseJSON<FactCheckResponse>(out.outputText)
-    if (parsed?.finding?.status) return parsed
-    return { claim: input.claim, finding: { status: 'uncertain' } }
+    const res = await fetch('/api/ai/fact-check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(`Fact-check failed: ${res.status} ${text}`)
+    }
+    return (await res.json()) as FactCheckResponse
   }
 
   async research(req: ResearchRequest): Promise<ResearchResponse> {
@@ -96,9 +98,17 @@ export class AgentsAssistantProvider implements AssistantProvider {
     return { items: [] }
   }
 
-  async transcribe(_input: { fileName: string; bytes: Uint8Array }): Promise<TranscriptionResult> {
-    // Real media upload/transcription path not wired yet via /api. Surface a clear error.
-    throw new Error('Transcription provider not implemented. Backend route required.')
+  async transcribe(input: { fileName: string; bytes: Uint8Array }): Promise<TranscriptionResult> {
+    const fd = new FormData()
+    const blob = new Blob([input.bytes], { type: 'application/octet-stream' })
+    fd.set('file', new File([blob], input.fileName))
+    const res = await fetch('/api/ai/transcribe', { method: 'POST', body: fd })
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(`Transcribe failed: ${res.status} ${text}`)
+    }
+    const data = (await res.json()) as TranscriptionResult
+    return data
   }
 
   async contextHelp(input: ContextHelpRequest): Promise<ContextHelpItem[]> {
@@ -112,4 +122,3 @@ export class AgentsAssistantProvider implements AssistantProvider {
     return []
   }
 }
-

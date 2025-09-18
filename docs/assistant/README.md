@@ -39,6 +39,15 @@ Server requirements for `agents` mode:
 - Packages installed on server: `@openai/agents` and `openai`.
 - Health check: `GET /api/ai/health` returns `{configured:true, engine:"agents", engineReady:true}` when ready.
 
+Transcription endpoint:
+- Client uses `/api/ai/transcribe` (multipart/form-data, field `file`). Server performs transcription via OpenAI SDK and extracts summary/action items.
+
+Fact-check grounding:
+- Client uses `/api/ai/fact-check`; server asks model for status and augments evidence with `/api/search/suggest` results and the current document (if provided).
+
+Streaming (optional):
+- Set `NEXT_PUBLIC_ASSISTANT_STREAM=true` to enable streaming in ChatPanel (SSE via POST to `/api/ai/execute`).
+
 Provider interface is defined by `AssistantProvider` in `src/lib/assistant/types.ts`.
 
 ## Accessibility
