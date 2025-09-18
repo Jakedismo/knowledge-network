@@ -594,16 +594,19 @@ export class RealtimeClient {
 
             case 'response.text.delta':
               this.events.onPartial?.(data.delta || '')
+              this.events.onAny?.('response.text.delta', data.delta || '')
               break
 
             case 'response.text.done':
               this.events.onFinal?.(data.text || '')
+              this.events.onAny?.('response.text.done', data.text || '')
               break
 
             case 'response.content_part.delta':
               // Handle content part deltas (new format)
               if (data.part?.type === 'text' && data.part?.text) {
                 this.events.onPartial?.(data.part.text)
+                this.events.onAny?.('response.text.delta', data.part.text)
               }
               break
 
@@ -611,15 +614,18 @@ export class RealtimeClient {
               // Handle content part completion
               if (data.part?.type === 'text' && data.part?.text) {
                 this.events.onFinal?.(data.part.text)
+                this.events.onAny?.('response.text.done', data.part.text)
               }
               break
 
             case 'response.audio.transcript.delta':
               this.events.onPartial?.(data.delta || '')
+              this.events.onAny?.('response.audio.transcript.delta', data.delta || '')
               break
 
             case 'response.audio.transcript.done':
               this.events.onFinal?.(data.transcript || '')
+              this.events.onAny?.('response.audio.transcript.done', data.transcript || '')
               break
 
             case 'response.audio.delta':
@@ -643,6 +649,18 @@ export class RealtimeClient {
               // User's speech was transcribed
               console.log('[RealtimeClient] User transcript:', data.transcript)
               this.events.onAny?.('user_transcript', data.transcript)
+              break
+
+            case 'conversation.item.created':
+              // A conversation item was created (could be user or assistant)
+              console.log('[RealtimeClient] Item created:', data.item)
+              if (data.item?.role === 'user' && data.item?.type === 'message') {
+                // User message was created from their speech
+                const content = data.item?.content?.[0]?.transcript || data.item?.content?.[0]?.text
+                if (content) {
+                  this.events.onAny?.('user_transcript', content)
+                }
+              }
               break
 
             case 'input_audio_buffer.speech_started':

@@ -270,18 +270,62 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
       if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
         try {
           const rtc = new RealtimeClient({
-            onPartial: (t) => setInput(String(t || '')),
+            onPartial: (t) => {
+              // This could be either user transcript or assistant response
+              // We'll handle assistant responses via onAny events instead
+              console.log('[ChatPanel] Partial text:', t)
+            },
             onFinal: (t) => {
-              const s = String(t || '')
-              setInput(s)
-              if (s.trim()) void send(s)
+              // This could be either user transcript or assistant response
+              console.log('[ChatPanel] Final text:', t)
             },
             onError: (e) => setRealtimeDiag({ lastError: String((e as any)?.message || e), lastAt: new Date().toISOString(), model: realtimeDiag?.model }),
-            onAny: (name, data) => setEventLog((prev) => {
-              const entry = { ts: new Date().toISOString(), name: String(name), data: safeDataPreview(data) }
-              const next = [...prev, entry]
-              return next.slice(-50)
-            }),
+            onAny: (name, data) => {
+              // Handle different events
+              if (name === 'user_transcript') {
+                // User's speech was transcribed
+                const transcript = String(data || '')
+                setInput(transcript)
+                if (transcript.trim()) {
+                  // Add user message to chat
+                  const now = new Date().toISOString()
+                  setMessages((prev) => [
+                    ...prev,
+                    { id: `u:${now}`, role: 'user', content: transcript, createdAt: now },
+                    { id: `a:${now}`, role: 'assistant', content: '', createdAt: now }, // Empty assistant bubble
+                  ])
+                }
+              } else if (name === 'response.text.delta' || name === 'response.audio.transcript.delta') {
+                // Assistant is responding (partial)
+                const delta = String(data || '')
+                setMessages((prev) => {
+                  const next = [...prev]
+                  const last = next[next.length - 1]
+                  if (last?.role === 'assistant') last.content += delta
+                  return next
+                })
+              } else if (name === 'response.text.done' || name === 'response.audio.transcript.done') {
+                // Assistant finished responding
+                const text = String(data || '')
+                setMessages((prev) => {
+                  const next = [...prev]
+                  const last = next[next.length - 1]
+                  if (last?.role === 'assistant') last.content = formatAssistantContent(text)
+                  return next
+                })
+              } else if (name === 'speech_started') {
+                setDictationMsg('Speaking...')
+              } else if (name === 'speech_stopped') {
+                setDictationMsg('Processing...')
+              }
+
+              // Log all events
+              setEventLog((prev) => {
+                const entry = { ts: new Date().toISOString(), name: String(name), data: safeDataPreview(data) }
+                const next = [...prev, entry]
+                return next.slice(-50)
+              })
+            },
           })
           realtimeRef.current = rtc
           try {
