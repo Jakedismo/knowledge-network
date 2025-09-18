@@ -10,7 +10,7 @@
 
 **A powerful collaborative knowledge management platform built with Next.js 15, TypeScript, and AI-powered features**
 
-[Demo](https://demo.knowledgenetwork.com) • [Documentation](./docs) • [API Reference](./docs/api-reference) • [Report Bug](https://github.com/knowledge-network/app/issues) • [Request Feature](https://github.com/knowledge-network/app/issues)
+[Documentation](./docs) • [API Reference](./docs/api-reference) • [Report Bug](https://github.com/knowledge-network/app/issues) • [Request Feature](https://github.com/knowledge-network/app/issues)
 
 </div>
 
@@ -35,20 +35,20 @@ Knowledge Network is a comprehensive collaborative knowledge management platform
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                   Next.js 15 App                     │
-│                                                      │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
-│  │   UI     │  │   Auth   │  │  State Manager   │  │
-│  │  Layer   │  │  System  │  │    (Zustand)     │  │
-│  └─────┬────┘  └─────┬────┘  └────────┬─────────┘  │
-│        │             │                 │             │
-│  ┌─────▼─────────────▼─────────────────▼─────────┐  │
-│  │            API Routes & Middleware             │  │
-│  └────────────────────┬───────────────────────────┘  │
-└───────────────────────┼─────────────────────────────┘
-                        │
-         ┌──────────────┼──────────────┐
-         │              │              │
+│                   Next.js 15 App                    │
+│                                                     │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐   │
+│  │   UI     │  │   Auth   │  │  State Manager   │   │
+│  │  Layer   │  │  System  │  │    (Zustand)     │   │
+│  └─────┬────┘  └─────┬────┘  └─────────┬────────┘   │
+│        │             │                 │            │
+│  ┌─────▼─────────────▼─────────────────▼──────────┐ │
+│  │            API Routes & Middleware             │ │
+│  └────────────────────┬───────────────────────────┘ │
+└──────────────────────┼──────────────────────────────┘
+                       │
+         ┌─────────────┼─────────────┐
+         │             │             │
     ┌────▼────┐  ┌─────▼─────┐  ┌────▼────┐
     │Postgres │  │   Redis   │  │   S3    │
     │   DB    │  │   Cache   │  │ Storage │
@@ -177,6 +177,7 @@ bun run type-check     # TypeScript type checking
 ### Technology Stack
 
 #### Frontend
+
 - **Framework**: Next.js 15+ (App Router)
 - **Language**: TypeScript 5+
 - **Styling**: Tailwind CSS 4+
@@ -185,6 +186,7 @@ bun run type-check     # TypeScript type checking
 - **Forms**: React Hook Form + Zod
 
 #### Backend
+
 - **Runtime**: Node.js 20+ / Bun 1.0+
 - **Database**: PostgreSQL 15+ with Prisma ORM
 - **Cache**: Redis 7+
@@ -193,6 +195,7 @@ bun run type-check     # TypeScript type checking
 - **Queue**: BullMQ
 
 #### DevOps
+
 - **Container**: Docker
 - **CI/CD**: GitHub Actions
 - **Monitoring**: Prometheus + Grafana
@@ -277,6 +280,7 @@ See [API Documentation](./docs/api-reference) for complete reference.
 ### Production Deployment
 
 1. **Build the application**:
+
 ```bash
 bun run build
 ```
@@ -284,11 +288,13 @@ bun run build
 2. **Set production environment variables**
 
 3. **Run migrations**:
+
 ```bash
 NODE_ENV=production bun run migrate
 ```
 
 4. **Start the server**:
+
 ```bash
 bun run start
 ```
@@ -368,7 +374,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ### Reporting Security Issues
 
-Please report security vulnerabilities to security@knowledgenetwork.com
+Please report security vulnerabilities to <security@knowledgenetwork.com>
 
 ## 📜 License
 
@@ -393,24 +399,27 @@ Thanks to all contributors who have helped build Knowledge Network!
 
 - **Documentation**: [docs.knowledgenetwork.com](https://docs.knowledgenetwork.com)
 - **Community Forum**: [community.knowledgenetwork.com](https://community.knowledgenetwork.com)
-- **Email Support**: support@knowledgenetwork.com
+- **Email Support**: <support@knowledgenetwork.com>
 - **Status Page**: [status.knowledgenetwork.com](https://status.knowledgenetwork.com)
 
 ## 🗺️ Roadmap
 
 ### Q1 2025
+
 - [x] Core platform release
 - [x] Real-time collaboration
 - [x] Mobile PWA
 - [ ] Advanced AI features
 
 ### Q2 2025
+
 - [ ] Plugin system
 - [ ] Advanced analytics
 - [ ] Enterprise SSO
 - [ ] Multi-language support
 
 ### Q3 2025
+
 - [ ] Native mobile apps
 - [ ] Advanced workflows
 - [ ] API v2
@@ -421,8 +430,6 @@ See the [open issues](https://github.com/knowledge-network/app/issues) for a ful
 ---
 
 <div align="center">
-
-**[Website](https://knowledgenetwork.com)** • **[Blog](https://blog.knowledgenetwork.com)** • **[Twitter](https://twitter.com/knowledgenetwork)** • **[LinkedIn](https://linkedin.com/company/knowledge-network)**
 
 Made with ❤️ by the Knowledge Network Team
 
