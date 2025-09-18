@@ -122,17 +122,37 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
         ) : (
           messages.map((m) => (
             <div key={m.id} className={m.role === 'user' ? 'text-right' : 'text-left'}>
-              <div
-                className={`inline-block max-w-[85%] rounded px-3 py-2 text-sm ${
-                  m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
-                }`}
-              >
-                {m.content}
-              </div>
+              {m.role === 'assistant' && detectToolList(m.content) ? (
+                <div className="inline-block max-w-[85%] rounded px-3 py-2 text-sm bg-muted text-foreground">
+                  <ToolListRenderer items={parseToolList(m.content)!} />
+                </div>
+              ) : (
+                <div
+                  className={`inline-block max-w-[85%] rounded px-3 py-2 text-sm ${
+                    m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
+                  }`}
+                >
+                  {m.content}
+                </div>
+              )}
             </div>
           ))
         )}
       </div>
+      {shouldShowConfirm(messages) ? (
+        <ConfirmBar
+          onProceed={async () => {
+            const ctx = mergeContext(baseContext, { documentId, selectionText, confirm: true })
+            const history = messages.map((m): { role: 'user' | 'assistant'; content: string } => ({
+              role: m.role === 'assistant' ? 'assistant' : 'user',
+              content: m.content,
+            }))
+            const res = await provider.chat({ input: 'Proceed with the proposed change.', context: ctx, history })
+            setMessages((prev) => [...prev, ...normalizeAssistantMessages(res.messages)])
+          }}
+          onCancel={() => setMessages((prev) => [...prev, { id: `u:${Date.now()}`, role: 'user', content: 'Cancel.', createdAt: new Date().toISOString() }])}
+        />
+      ) : null}
       <form
         ref={formRef}
         onSubmit={(e) => {
@@ -282,4 +302,65 @@ ${String(obj.prompt)}`)
     // ignore
   }
   return null
+}
+
+function detectToolList(text: string): boolean {
+  const parsed = safeParseJson(text)
+  if (!parsed) return false
+  if (Array.isArray(parsed)) return parsed.length > 0 && typeof parsed[0] === 'object'
+  if (parsed.items && Array.isArray(parsed.items)) return parsed.items.length > 0 && typeof parsed.items[0] === 'object'
+  return false
+}
+
+function parseToolList(text: string): Array<{ id?: string; title?: string; snippet?: string; path?: string; url?: string }> | null {
+  const parsed = safeParseJson(text)
+  if (!parsed) return null
+  const arr = Array.isArray(parsed) ? parsed : parsed.items
+  if (!Array.isArray(arr)) return null
+  return arr as any
+}
+
+function safeParseJson(text: string): any | null {
+  const t = (text || '').trim()
+  if (!(t.startsWith('{') || t.startsWith('['))) return null
+  try { return JSON.parse(t) } catch { return null }
+}
+
+function shouldShowConfirm(msgs: ChatMessage[]): boolean {
+  if (msgs.length === 0) return false
+  const last = msgs[msgs.length - 1]
+  if (last.role !== 'assistant') return false
+  const t = (last.content || '').toLowerCase()
+  return t.includes('proceed?') || t.includes('confirmation required') || t.includes('confirm=true')
+}
+
+function ToolListRenderer({ items }: { items: Array<{ id?: string; title?: string; snippet?: string; path?: string; url?: string }> }) {
+  return (
+    <div className="space-y-2">
+      {items.map((it, i) => (
+        <div key={it.id ?? i} className="rounded border bg-background p-2 text-left">
+          <div className="font-medium">
+            {it.url ? (
+              <a className="underline" href={it.url} target="_blank" rel="noreferrer">
+                {it.title ?? it.id ?? 'Item'}
+              </a>
+            ) : (
+              <span>{it.title ?? it.id ?? 'Item'}</span>
+            )}
+          </div>
+          {it.path ? <div className="text-xs text-muted-foreground">{it.path}</div> : null}
+          {it.snippet ? <div className="mt-1 text-sm">{it.snippet}</div> : null}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ConfirmBar({ onProceed, onCancel }: { onProceed: () => void | Promise<void>; onCancel: () => void | Promise<void> }) {
+  return (
+    <div className="border-t bg-muted/60 p-2 flex items-center justify-end gap-2">
+      <button className="rounded border bg-background px-3 py-2 text-sm" onClick={() => void onCancel()} aria-label="Cancel proposed change">Cancel</button>
+      <button className="rounded bg-primary px-3 py-2 text-sm text-primary-foreground" onClick={() => void onProceed()} aria-label="Proceed with proposed change">Proceed</button>
+    </div>
+  )
 }
