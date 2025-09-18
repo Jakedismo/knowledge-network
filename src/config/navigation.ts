@@ -17,6 +17,7 @@ import {
   FileCheck,
   Database,
   Layout,
+  PlugZap,
   type LucideIcon
 } from 'lucide-react'
 
@@ -119,6 +120,13 @@ export const primaryNavigation: NavItem[] = [
         icon: Sparkles,
       },
     ],
+  },
+  {
+    id: 'integrations',
+    label: 'Integrations',
+    path: '/integrations',
+    icon: PlugZap,
+    position: 'primary',
   },
   {
     id: 'collaboration',

@@ -15,24 +15,13 @@ import {
   ArrowRight,
   Info
 } from 'lucide-react'
-import { IntegrationConfig } from '@/server/modules/integrations/types'
+import type { IntegrationDefinition } from '@/lib/integrations/types'
 
 interface IntegrationCardProps {
-  integration: IntegrationConfig & {
-    category: 'collaboration' | 'storage' | 'project_management' | 'development' | 'analytics'
-    description: string
-    logo?: string
-    features: string[]
-    status: 'connected' | 'disconnected' | 'error'
-    lastSync?: Date
-    usage?: {
-      requests: number
-      limit: number
-    }
-  }
-  onConfigure: (integration: IntegrationConfig) => void
-  onToggle: (integration: IntegrationConfig, enabled: boolean) => void
-  onConnect: (integration: IntegrationConfig) => void
+  integration: IntegrationDefinition
+  onConfigure: (integration: IntegrationDefinition) => void
+  onToggle: (integration: IntegrationDefinition, enabled: boolean) => void
+  onConnect: (integration: IntegrationDefinition) => void
   className?: string
 }
 

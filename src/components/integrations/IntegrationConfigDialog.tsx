@@ -33,28 +33,15 @@ import {
   Loader2,
   Link2
 } from 'lucide-react'
-import { IntegrationConfig, OAuth2Config } from '@/server/modules/integrations/types'
+import type { IntegrationDefinition } from '@/lib/integrations/types'
 
 interface IntegrationConfigDialogProps {
-  integration: IntegrationConfig & {
-    description?: string
-    logo?: string
-    oauth2Config?: OAuth2Config
-    requiredScopes?: string[]
-    optionalScopes?: string[]
-    apiKeyFields?: {
-      name: string
-      label: string
-      type?: 'text' | 'password' | 'url'
-      placeholder?: string
-      required?: boolean
-    }[]
-  }
+  integration: IntegrationDefinition
   isOpen: boolean
   onClose: () => void
-  onSave: (config: IntegrationConfig) => Promise<void>
-  onTestConnection: (config: IntegrationConfig) => Promise<boolean>
-  onOAuthConnect?: (integration: IntegrationConfig) => void
+  onSave: (config: IntegrationDefinition) => Promise<void>
+  onTestConnection: (config: IntegrationDefinition) => Promise<boolean>
+  onOAuthConnect?: (integration: IntegrationDefinition) => void
 }
 
 export function IntegrationConfigDialog({
