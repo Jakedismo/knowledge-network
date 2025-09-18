@@ -381,55 +381,57 @@ export class RealtimeClient {
     console.log('[RealtimeClient] API key prefix:', apiKey?.substring(0, 10))
 
     try {
-      // First, let's try a simpler approach - passing the API key in the URL
-      // This is another method OpenAI supports for WebSocket auth
-      const authUrl = `${wsUrl}&Authorization=Bearer%20${encodeURIComponent(apiKey)}`
+      // For OpenAI Realtime GA API, we need to use the proper Authorization header format
+      // WebSockets in browsers don't support custom headers directly, so we use subprotocols
+      console.log('[RealtimeClient] Configuring WebSocket authentication')
 
-      console.log('[RealtimeClient] Attempting URL-based authentication')
-      console.log('[RealtimeClient] URL (without key):', wsUrl)
+      // OpenAI expects the API key to be passed as a subprotocol in this specific format
+      const subprotocols: string[] = []
+
+      // Add the realtime protocol first
+      subprotocols.push('realtime')
+
+      // Then add the API key in the correct format
+      if (apiKey && typeof apiKey === 'string' && apiKey.length > 0) {
+        // Format: "openai-insecure-api-key.<your-api-key>"
+        const authProtocol = `openai-insecure-api-key.${apiKey}`
+        subprotocols.push(authProtocol)
+        console.log('[RealtimeClient] Using OpenAI insecure API key subprotocol')
+      }
+
+      // For beta API compatibility (though we're using GA)
+      // Some versions might still expect this
+      subprotocols.push('openai-beta.realtime-v1')
+
+      console.log('[RealtimeClient] Subprotocols configured:', subprotocols.map(s =>
+        s.startsWith('openai-insecure') ? 'openai-insecure-api-key.<hidden>' : s
+      ))
 
       try {
-        // Try with API key in URL
-        this.ws = new WebSocket(authUrl)
-        console.log('[RealtimeClient] WebSocket created with URL auth')
-      } catch (urlErr: any) {
-        console.error('[RealtimeClient] URL auth failed:', urlErr?.message)
-
-        // Fallback to subprotocol method
-        console.log('[RealtimeClient] Falling back to subprotocol auth')
-
-        // For GA API, we should NOT use the beta subprotocol
-        // Only use the insecure API key subprotocol
-        const subprotocols: string[] = []
-
-        // Add the API key subprotocol
-        if (apiKey && typeof apiKey === 'string' && apiKey.length > 0) {
-          const apiKeyProtocol = `openai-insecure-api-key.${apiKey}`
-          console.log('[RealtimeClient] Creating API key subprotocol')
-          console.log('[RealtimeClient] API key protocol length:', apiKeyProtocol.length)
-          subprotocols.push(apiKeyProtocol)
-        }
-
-        // Ensure subprotocols is an array of strings
-        console.log('[RealtimeClient] Subprotocols type:', typeof subprotocols)
-        console.log('[RealtimeClient] Subprotocols isArray:', Array.isArray(subprotocols))
-        console.log('[RealtimeClient] Subprotocols length:', subprotocols.length)
-        console.log('[RealtimeClient] Using subprotocols:', subprotocols.map(s =>
-          s.startsWith('openai-insecure') ? 'openai-insecure-api-key.<hidden>' : s
-        ))
-
-        // Verify each element is a string
-        subprotocols.forEach((s, i) => {
-          console.log(`[RealtimeClient] Subprotocol ${i} type:`, typeof s)
-          if (typeof s !== 'string') {
-            console.error(`[RealtimeClient] Subprotocol ${i} is not a string:`, typeof s, s)
-          }
-        })
-
-        console.log('[RealtimeClient] About to create WebSocket with subprotocols')
-        // Create WebSocket with subprotocols for authorization
+        // Create WebSocket with proper subprotocols
+        console.log('[RealtimeClient] Creating WebSocket with subprotocols')
         this.ws = new WebSocket(wsUrl, subprotocols)
-        console.log('[RealtimeClient] WebSocket created successfully with subprotocols')
+        console.log('[RealtimeClient] WebSocket created successfully')
+      } catch (subprotocolErr: any) {
+        console.error('[RealtimeClient] Subprotocol creation failed:', subprotocolErr?.message)
+
+        // Fallback: Try adding the API key as URL parameter
+        console.log('[RealtimeClient] Falling back to URL parameter auth')
+
+        try {
+          // Append the API key as a query parameter
+          const authUrl = `${wsUrl}&authorization=Bearer%20${encodeURIComponent(apiKey)}`
+          console.log('[RealtimeClient] Attempting WebSocket with auth in URL')
+
+          this.ws = new WebSocket(authUrl)
+          console.log('[RealtimeClient] WebSocket created with URL auth')
+        } catch (urlErr: any) {
+          console.error('[RealtimeClient] URL auth also failed:', urlErr?.message)
+
+          // Last resort: Try without any auth (will likely fail but worth trying)
+          console.log('[RealtimeClient] Trying without auth (may fail)')
+          this.ws = new WebSocket(wsUrl)
+        }
       }
     } catch (err: any) {
       console.error('[RealtimeClient] Failed to create WebSocket with subprotocols')
@@ -488,7 +490,9 @@ export class RealtimeClient {
         this.ws?.send(JSON.stringify(sessionConfig))
 
         console.log('[RealtimeClient] Session configuration sent')
-        resolve({ model })
+
+        // Don't resolve immediately - wait for session.created confirmation
+        // resolve({ model })
       }
 
       this.ws.onmessage = (event) => {
@@ -500,6 +504,8 @@ export class RealtimeClient {
           switch (data.type) {
             case 'session.created':
               console.log('[RealtimeClient] Session created:', data.session)
+              // Now we can resolve the connection promise
+              resolve({ model })
               break
 
             case 'response.text.delta':
