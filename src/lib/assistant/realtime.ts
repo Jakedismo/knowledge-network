@@ -552,9 +552,9 @@ export class RealtimeClient {
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
             input_audio_transcription: {
-              model: 'whisper-1',
-              language: null,  // Auto-detect language
-              prompt: null     // No specific transcription prompt
+              model: 'whisper-1'
+              // Omit language field to allow auto-detection
+              // Don't include null values as they cause validation errors
             },
             turn_detection: {
               type: 'server_vad',
