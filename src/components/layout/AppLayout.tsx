@@ -4,6 +4,7 @@ import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Menu, X, Search, Bell, User, ChevronRight, Plus, Sparkles } from 'lucide-react'
+import { AIStatusBadge } from '@/components/assistant/AIStatusBadge'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -18,6 +19,7 @@ import {
   getBreadcrumbs,
   type NavItem
 } from '@/config/navigation'
+import { ThemeProvider } from '@/lib/theme-provider'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -181,6 +183,7 @@ export function AppLayout({
   }
 
   return (
+    <ThemeProvider defaultTheme="system" enableSystem disableTransitionOnChange>
     <div className="min-h-screen bg-background">
       {/* Header */}
       {showHeader && (
@@ -225,6 +228,9 @@ export function AppLayout({
                   </kbd>
                 </Button>
               )}
+
+              {/* AI Status */}
+              {!isMobile && <AIStatusBadge />}
 
               {/* Copilot trigger */}
               <Button variant="ghost" size="sm" className="hidden sm:flex items-center gap-2" onClick={openAssistantDock}>
@@ -403,5 +409,6 @@ export function AppLayout({
 
       <AssistantDock />
     </div>
+    </ThemeProvider>
   )
 }

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAssistantRuntime } from '@/lib/assistant/runtime-context'
 import Link from 'next/link'
 import type { AssistantContext, ChatMessage } from '@/lib/assistant/types'
+import { Mic } from 'lucide-react'
 
 interface ChatPanelProps {
   documentId?: string
@@ -16,6 +17,11 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
   const formRef = useRef<HTMLFormElement>(null)
   const streaming = process.env.NEXT_PUBLIC_ASSISTANT_STREAM === 'true'
   const [speakReplies, setSpeakReplies] = useState(false)
+  const [pttEnabled, setPttEnabled] = useState(false)
+  const [pttKey, setPttKey] = useState<'v' | ' ' | 'm'>('v')
+  const [dictating, setDictating] = useState(false)
+  const [dictationMsg, setDictationMsg] = useState('')
+  const recRef = useRef<any>(null)
 
   const send = useCallback(async (overridePrompt?: string) => {
     const effective = (overridePrompt ?? input).trim()
@@ -138,6 +144,95 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
     return () => window.removeEventListener('assistant:chat', handler as EventListener)
   }, [mergeGlobalContext, send])
 
+  // Global push-to-talk for Ask: hold key to dictate prompt; release to send
+  useEffect(() => {
+    if (!pttEnabled) return
+    const hasAPI = typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
+    if (!hasAPI) return
+
+    const down = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      const tag = target?.tagName?.toLowerCase()
+      if (tag === 'input' || tag === 'textarea' || (target as any)?.isContentEditable) return
+      const match = (pttKey === ' ' ? e.code === 'Space' : e.key.toLowerCase() === pttKey)
+      if (!match || e.repeat) return
+      if (!dictating) {
+        e.preventDefault()
+        startDictation()
+      }
+    }
+    const up = (e: KeyboardEvent) => {
+      const match = (pttKey === ' ' ? e.code === 'Space' : e.key.toLowerCase() === pttKey)
+      if (!match) return
+      if (dictating) {
+        e.preventDefault()
+        stopDictation(true)
+      }
+    }
+    window.addEventListener('keydown', down)
+    window.addEventListener('keyup', up)
+    return () => {
+      window.removeEventListener('keydown', down)
+      window.removeEventListener('keyup', up)
+    }
+  }, [pttEnabled, pttKey, dictating])
+
+  function startDictation() {
+    try {
+      const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      if (!SR) return
+      const rec = new SR()
+      rec.lang = (navigator as any).language || 'en-US'
+      rec.continuous = false
+      rec.interimResults = true
+      let transcript = ''
+      rec.onstart = () => {
+        setDictating(true)
+        setDictationMsg('Listening… release key to send')
+      }
+      rec.onresult = (ev: any) => {
+        let interim = ''
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          const res = ev.results[i]
+          if (res.isFinal) transcript += res[0].transcript
+          else interim += res[0].transcript
+        }
+        setInput((transcript + ' ' + interim).trim())
+      }
+      rec.onerror = () => {
+        setDictationMsg('')
+        setDictating(false)
+      }
+      rec.onend = () => {
+        setDictationMsg('')
+        setDictating(false)
+      }
+      recRef.current = rec
+      rec.start()
+    } catch {
+      // ignore
+    }
+  }
+
+  function stopDictation(sendIt: boolean) {
+    try {
+      recRef.current?.stop()
+    } catch {}
+    recRef.current = null
+    setDictating(false)
+    setDictationMsg('')
+    if (sendIt && input.trim()) void send(input)
+  }
+
+  const listRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    // Auto-scroll to latest on new messages
+    try {
+      const el = listRef.current
+      if (el) el.scrollTop = el.scrollHeight
+    } catch {}
+  }, [messages])
+
   return (
     <div className="flex h-full w-full flex-col rounded-lg border bg-background">
       <div className="flex items-center justify-end gap-2 border-b p-2 text-xs text-muted-foreground">
@@ -150,8 +245,30 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
           />
           Speak replies
         </label>
+        <span className="mx-2 h-3 w-px bg-border" />
+        <label className="inline-flex cursor-pointer items-center gap-1">
+          <input
+            type="checkbox"
+            className="h-3 w-3"
+            checked={pttEnabled}
+            onChange={(e) => setPttEnabled(e.target.checked)}
+          />
+          Push‑to‑talk
+        </label>
+        <select
+          className="rounded border bg-background px-1.5 py-0.5"
+          value={pttKey}
+          onChange={(e) => setPttKey(e.target.value as any)}
+          aria-label="Push-to-talk key"
+          disabled={!pttEnabled}
+        >
+          <option value="v">Hold V</option>
+          <option value=" ">Hold Space</option>
+          <option value="m">Hold M</option>
+        </select>
+        {dictating ? <span aria-live="polite">{dictationMsg}</span> : null}
       </div>
-      <div className="flex-1 overflow-auto p-3 space-y-3" aria-live="polite">
+      <div ref={listRef} className="flex-1 overflow-auto p-3 space-y-3" aria-live="polite">
         {messages.length === 0 ? (
           <p className="text-sm text-muted-foreground">Ask a question about your document or workspace…</p>
         ) : (
@@ -210,6 +327,16 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type your question…"
         />
+        <button
+          type="button"
+          className="rounded border bg-background px-2 py-2 text-sm hover:bg-muted/40"
+          aria-pressed={dictating}
+          aria-label={dictating ? 'Stop dictation and send' : 'Start dictation'}
+          onClick={() => (dictating ? stopDictation(true) : startDictation())}
+          title={dictating ? 'Stop and send' : 'Start dictation'}
+        >
+          <Mic className={`h-4 w-4 ${dictating ? 'text-primary' : ''}`} />
+        </button>
         <button
           type="submit"
           className="rounded bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-50"

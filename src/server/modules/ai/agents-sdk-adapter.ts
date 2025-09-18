@@ -1,6 +1,43 @@
 import type { AgentInvokeFullResult, AgentInvokeInput, AgentInvokeResultChunk } from './types'
 import { BASE_SYSTEM_PROMPT } from './prompt'
+import { z } from 'zod'
 import { buildWorkspaceAgentTools } from './tools'
+
+function schemaToZod(schema: any): z.ZodTypeAny {
+  if (!schema || typeof schema !== 'object') return z.any()
+  if (schema instanceof z.ZodType) return schema
+  const type = schema.type
+  if (type === 'object') {
+    const shape: Record<string, z.ZodTypeAny> = {}
+    const props = schema.properties ?? {}
+    const required: string[] = Array.isArray(schema.required) ? schema.required : []
+    for (const [key, prop] of Object.entries<any>(props)) {
+      const base = schemaToZod(prop)
+      // OpenAI function tools require all fields present; use nullable() for formerly-optional fields
+      shape[key] = required.includes(key) ? base : base.nullable()
+    }
+    return z.object(shape)
+  }
+  if (type === 'array') {
+    const item = schemaToZod(schema.items ?? { type: 'any' })
+    return z.array(item)
+  }
+  if (type === 'string') {
+    if (Array.isArray(schema.enum) && schema.enum.every((v: any) => typeof v === 'string')) {
+      return (z.enum as any)(schema.enum as [string, ...string[]])
+    }
+    return z.string()
+  }
+  if (type === 'integer' || type === 'number') {
+    let num = z.number()
+    if (type === 'integer') num = num.int()
+    if (typeof schema.minimum === 'number') num = num.min(schema.minimum)
+    if (typeof schema.maximum === 'number') num = num.max(schema.maximum)
+    return num
+  }
+  if (type === 'boolean') return z.boolean()
+  return z.any()
+}
 
 export async function runWithAgentsSDK(input: AgentInvokeInput): Promise<AgentInvokeFullResult> {
   // Dynamically import so the project works without the dependency installed
@@ -23,7 +60,7 @@ export async function runWithAgentsSDK(input: AgentInvokeInput): Promise<AgentIn
       toTool({
         name: t.name,
         description: t.description,
-        parameters: t.parameters,
+        parameters: schemaToZod(t.parameters),
         execute: async (args: any) => t.execute(args, { userId: input.userId, workspaceId: input.workspaceId }),
       })
     ),
@@ -71,11 +108,12 @@ export async function runWithAgentsSDKStream(input: AgentInvokeInput): Promise<A
       toTool({
         name: t.name,
         description: t.description,
-        parameters: t.parameters,
+        parameters: schemaToZod(t.parameters),
         execute: async (args: any) => t.execute(args, { userId: input.userId, workspaceId: input.workspaceId }),
       })
     ),
   })
+
 
   const content = typeof input.input === 'string' ? input.input : JSON.stringify(input.input ?? {})
 

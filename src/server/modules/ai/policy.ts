@@ -15,10 +15,21 @@ export async function requireAIAccess(
   opts: AIGuardOptions = {}
 ): Promise<GuardContext | Response> {
   const requireRbac = (process.env.AI_REQUIRE_RBAC ?? '0') === '1'
-  const ctx = requireRbac
+  const ctxOrRes = requireRbac
     ? await requireAccess(req, opts.permission ?? 'ai:invoke', OrgResourceType.WORKSPACE)
     : await requireAuth(req)
-  if ((ctx as any)?.json) return ctx as any
+
+  // If RBAC is disabled (AI_REQUIRE_RBAC=0) and auth is missing, synthesize a dev context
+  let ctx: GuardContext
+  if ((ctxOrRes as any)?.json) {
+    if (requireRbac) return ctxOrRes as any
+    ctx = {
+      userId: process.env.NEXT_PUBLIC_DEV_USER_ID ?? 'dev-anon',
+      workspaceId: process.env.NEXT_PUBLIC_DEV_WORKSPACE_ID ?? undefined,
+    }
+  } else {
+    ctx = ctxOrRes as GuardContext
+  }
   const userId = (ctx as any).userId as string
   const rpm = opts.rpm ?? Number(process.env.AI_RPM ?? 30)
   const key = `ai:${userId}`

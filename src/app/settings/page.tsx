@@ -12,6 +12,7 @@ import {
   Smartphone,
 } from 'lucide-react'
 import { useTheme } from '@/lib/theme-provider'
+// Theme controls are rendered in a child that reads context
 
 const notificationSettings = [
   { label: 'Daily digest', description: 'Summary of collaboration activity and key updates.' },
@@ -26,7 +27,6 @@ const deviceSessions = [
 ]
 
 export default function SettingsPage() {
-  const { theme, setTheme } = useTheme()
   return (
     <AppLayout>
       <div className="space-y-8">
@@ -106,33 +106,7 @@ export default function SettingsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-lg border bg-muted/30 p-4">
-                  <h3 className="text-sm font-medium text-foreground">Desktop theme</h3>
-                  <p className="text-xs text-muted-foreground">Align with system preferences or set explicit mode.</p>
-                  <div className="mt-3 flex gap-2 text-xs">
-                    <Button
-                      size="sm"
-                      variant={theme === 'light' ? 'secondary' : 'outline'}
-                      onClick={() => setTheme('light')}
-                    >
-                      Light
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={theme === 'dark' ? 'secondary' : 'outline'}
-                      onClick={() => setTheme('dark')}
-                    >
-                      Dark
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={theme === 'system' ? 'secondary' : 'outline'}
-                      onClick={() => setTheme('system')}
-                    >
-                      System
-                    </Button>
-                  </div>
-                </div>
+                <AppearanceThemeControls />
                 <div className="rounded-lg border bg-muted/30 p-4">
                   <h3 className="text-sm font-medium text-foreground">Mobile layout</h3>
                   <p className="text-xs text-muted-foreground">Choose between compact or spacious navigation.</p>
@@ -147,5 +121,38 @@ export default function SettingsPage() {
         </Tabs>
       </div>
     </AppLayout>
+  )
+}
+
+function AppearanceThemeControls() {
+  const { theme, setTheme } = useTheme()
+  return (
+    <div className="rounded-lg border bg-muted/30 p-4">
+      <h3 className="text-sm font-medium text-foreground">Desktop theme</h3>
+      <p className="text-xs text-muted-foreground">Align with system preferences or set explicit mode.</p>
+      <div className="mt-3 flex gap-2 text-xs">
+        <Button
+          size="sm"
+          variant={theme === 'light' ? 'secondary' : 'outline'}
+          onClick={() => setTheme('light')}
+        >
+          Light
+        </Button>
+        <Button
+          size="sm"
+          variant={theme === 'dark' ? 'secondary' : 'outline'}
+          onClick={() => setTheme('dark')}
+        >
+          Dark
+        </Button>
+        <Button
+          size="sm"
+          variant={theme === 'system' ? 'secondary' : 'outline'}
+          onClick={() => setTheme('system')}
+        >
+          System
+        </Button>
+      </div>
+    </div>
   )
 }

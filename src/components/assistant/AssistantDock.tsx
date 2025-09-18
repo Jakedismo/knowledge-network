@@ -132,6 +132,11 @@ export function AssistantDock() {
                 <li>Research briefs</li>
                 <li>Meeting transcriptions</li>
               </ul>
+              <div className="flex items-center gap-2 pt-1">
+                <span className="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  {process.env.NEXT_PUBLIC_DEV_USER_ID ? 'Dev Mode' : 'Production'}
+                </span>
+              </div>
             </div>
           </header>
 

@@ -180,6 +180,10 @@ const nextConfig = {
 
   // Headers for performance and security
   async headers() {
+    const allowDevMedia = process.env.NODE_ENV !== 'production'
+    const permissions = allowDevMedia
+      ? 'camera=(), microphone=(self), geolocation=()'
+      : 'camera=(), microphone=(), geolocation=()'
     return [
       {
         source: '/(.*)',
@@ -199,7 +203,7 @@ const nextConfig = {
           },
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()',
+            value: permissions,
           },
           // Performance headers
           {
