@@ -17,53 +17,17 @@ type TemplateItem = {
   tags?: string[]
 }
 
-const FALLBACK_TEMPLATES: TemplateItem[] = [
-  {
-    id: 'incident-postmortem',
-    name: 'Incident Postmortem',
-    description: 'Structured root-cause analysis with mitigation tracker.',
-    version: '1.3',
-    visibility: 'public',
-    category: 'operations',
-    tags: ['incident', 'postmortem', 'operations'],
-  },
-  {
-    id: 'launch-readiness',
-    name: 'Launch Readiness Checklist',
-    description: 'Gate-by-gate readiness assessment for product launches.',
-    version: '2.1',
-    visibility: 'public',
-    category: 'go-to-market',
-    tags: ['launch', 'checklist'],
-  },
-  {
-    id: 'decision-log',
-    name: 'Decision Log',
-    description: 'Capture context, options, and outcomes for critical decisions.',
-    version: '1.5',
-    visibility: 'public',
-    category: 'governance',
-    tags: ['decision', 'governance'],
-  },
-  {
-    id: 'customer-research',
-    name: 'Customer Research Summary',
-    description: 'Synthesize interviews, sentiment, and recommended actions.',
-    version: '1.0',
-    visibility: 'workspace',
-    category: 'customer',
-    tags: ['research', 'customer'],
-  },
-  {
-    id: 'operational-runbook',
-    name: 'Operational Runbook',
-    description: 'Step-by-step runbook with escalation ladder and health checks.',
-    version: '1.7',
-    visibility: 'workspace',
-    category: 'operations',
-    tags: ['runbook', 'operations'],
-  },
-]
+// Fallback uses builtin library so IDs match the render endpoint
+import { builtinTemplates } from '@/lib/templates/library'
+const FALLBACK_TEMPLATES: TemplateItem[] = builtinTemplates.map((t) => ({
+  id: t.id,
+  name: t.name,
+  description: t.description,
+  version: t.version,
+  visibility: t.visibility,
+  category: t.category,
+  tags: t.keywords ?? [],
+}))
 
 const filterTemplates = (templates: TemplateItem[], term: string) => {
   const normalized = term.trim().toLowerCase()

@@ -32,7 +32,7 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
       }))
       const resp = await fetch('/api/ai/execute', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(getAuthHeader()) },
         body: JSON.stringify({
           capability: 'chat',
           input: { question: input, context, history },
@@ -40,13 +40,30 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
         }),
         signal: controller.signal,
       })
-      if (!resp.ok || !resp.body) {
+      if (!resp.ok) { setInput(''); return }
+
+      // Fallback: if server couldn't stream (e.g., Agents SDK path), it will return JSON
+      const ctype = resp.headers.get('content-type') || ''
+      if (!ctype.includes('text/event-stream')) {
+        try {
+          const payload = await resp.json()
+          if (payload?.type === 'chat' && Array.isArray(payload?.data?.messages)) {
+            setMessages((prev) => {
+              // Remove the optimistic assistant bubble before appending real messages
+              const trimmed = prev.slice(0, -1)
+              return [...trimmed, ...payload.data.messages]
+            })
+          }
+        } catch {
+          // Ignore JSON parse errors; leave the optimistic assistant empty
+        }
         setInput('')
         return
       }
       const reader = resp.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let sawAnyText = false
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
@@ -62,12 +79,26 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
               const next = [...prev]
               const last = next[next.length - 1]
               if (last?.role === 'assistant') {
-                last.content += JSON.parse(dataLine)
+                const delta = safeParseDataLine(dataLine)
+                last.content += delta
+                sawAnyText = true
               }
               return next
             })
           }
         }
+      }
+      // Post-process last assistant message for JSON pretty formatting and de-duplication
+      if (sawAnyText) {
+        setMessages((prev) => {
+          if (prev.length === 0) return prev
+          const next = [...prev]
+          const last = next[next.length - 1]
+          if (last?.role === 'assistant') {
+            last.content = formatAssistantContent(last.content)
+          }
+          return next
+        })
       }
       setInput('')
       return
@@ -78,7 +109,8 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
       content: m.content,
     }))
     const res = await provider.chat({ input, context, history })
-    setMessages((prev) => [...prev, ...res.messages])
+    const normalized = normalizeAssistantMessages(res.messages)
+    setMessages((prev) => [...prev, ...normalized])
     setInput('')
   }, [input, provider, baseContext, documentId, selectionText, streaming, messages])
 
@@ -139,4 +171,115 @@ function mergeContext(base: AssistantContext, overrides: { documentId?: string; 
   if (overrides.documentId && overrides.documentId.trim()) next.documentId = overrides.documentId
   if (overrides.selectionText && overrides.selectionText.trim()) next.selectionText = overrides.selectionText
   return next
+}
+
+function getAuthHeader(): Record<string, string> {
+  try {
+    if (typeof window !== 'undefined') {
+      // Prefer single token used by GraphQL
+      const bearer = window.localStorage.getItem('auth-token')
+      const headers: Record<string, string> = {}
+      if (bearer) headers.Authorization = `Bearer ${bearer}`
+
+      // Fallback to token pair storage
+      if (!bearer) {
+        const raw = window.localStorage.getItem('auth_tokens')
+        if (raw) {
+          const parsed = JSON.parse(raw) as { accessToken?: string }
+          if (parsed?.accessToken) headers.Authorization = `Bearer ${parsed.accessToken}`
+        }
+      }
+
+      // Best-effort x-user-id/x-workspace-id to satisfy dev guards
+      const payload = decodeJwtPayload(bearer)
+      if (payload?.sub) headers['x-user-id'] = String(payload.sub)
+      if (payload?.workspaceId) headers['x-workspace-id'] = String(payload.workspaceId)
+      // Dev overrides for local testing
+      if (!headers['x-user-id'] && process.env.NEXT_PUBLIC_DEV_USER_ID) headers['x-user-id'] = String(process.env.NEXT_PUBLIC_DEV_USER_ID)
+      if (!headers['x-workspace-id'] && process.env.NEXT_PUBLIC_DEV_WORKSPACE_ID) headers['x-workspace-id'] = String(process.env.NEXT_PUBLIC_DEV_WORKSPACE_ID)
+      return headers
+    }
+  } catch {
+    // ignore
+  }
+  return {}
+}
+
+function decodeJwtPayload(token: string | null): any | null {
+  if (!token) return null
+  const parts = token.split('.')
+  if (parts.length !== 3) return null
+  try {
+    const json = atob(parts[1])
+    return JSON.parse(json)
+  } catch {
+    return null
+  }
+}
+
+function safeParseDataLine(dataLine: string): string {
+  try {
+    const parsed = JSON.parse(dataLine)
+    return typeof parsed === 'string' ? parsed : String(parsed)
+  } catch {
+    return dataLine
+  }
+}
+
+function normalizeAssistantMessages(messages: ChatMessage[]): ChatMessage[] {
+  return messages.map((m) =>
+    m.role === 'assistant' ? { ...m, content: formatAssistantContent(m.content) } : m,
+  )
+}
+
+function formatAssistantContent(text: string): string {
+  const trimmed = (text || '').trim()
+  const deduped = dedupeRepeatedWords(trimmed)
+  const maybe = tryFormatJson(deduped)
+  return maybe ?? deduped
+}
+
+function dedupeRepeatedWords(s: string): string {
+  // Collapse immediate duplicated words like "TitleTitle" -> "Title" and "DocumentDocument" -> "Document"
+  // Also collapse duplicated tokens separated by single spaces: "Model Model" -> "Model"
+  return s
+    .replace(/([A-Za-z]{2,})\1/g, '$1')
+    .replace(/\b(\w{2,})\s+\1\b/gi, '$1')
+}
+
+function tryFormatJson(s: string): string | null {
+  if (!s) return null
+  const text = s.trim()
+  if (!(text.startsWith('{') || text.startsWith('['))) return null
+  try {
+    const obj = JSON.parse(text)
+    // Known shapes: { message, next_steps[], document{}, context{}, prompt }
+    if (Array.isArray(obj)) {
+      return obj.map((it: any) => `• ${String(it?.title ?? it?.text ?? it)}`).join('\n')
+    }
+    if (obj && typeof obj === 'object') {
+      const lines: string[] = []
+      if (obj.message) lines.push(String(obj.message))
+      if (obj.document) {
+        const d = obj.document
+        const title = d?.title ? String(d.title) : 'Document'
+        const vis = d?.visibility ? ` (${String(d.visibility)})` : ''
+        const path = d?.path ? ` — ${String(d.path)}` : ''
+        lines.push(`Document: ${title}${vis}${path}`)
+      }
+      if (Array.isArray(obj.next_steps) && obj.next_steps.length) {
+        lines.push('Next steps:')
+        for (const step of obj.next_steps) lines.push(`• ${String(step)}`)
+      }
+      if (obj.prompt) lines.push(`
+${String(obj.prompt)}`)
+      if (obj.summary && !obj.message) lines.push(String(obj.summary))
+      if (lines.length) return lines.join('\n')
+      // Fallback: pretty-print JSON
+      return '```json\n' + JSON.stringify(obj, null, 2) + '\n```'
+    }
+  } catch {
+    // ignore
+  }
+  return null
 }

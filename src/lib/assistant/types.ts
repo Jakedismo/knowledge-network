@@ -26,6 +26,7 @@ export interface AssistantContext {
   pageTitle?: string | undefined
   collectionId?: string | undefined
   tags?: string[] | undefined
+  confirm?: boolean | undefined
 }
 
 export interface ChatResponse {

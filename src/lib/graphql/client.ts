@@ -21,18 +21,21 @@ if (typeof window !== 'undefined') {
 const httpUri =
   process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT ||
   process.env.GRAPHQL_ENDPOINT ||
-  'http://localhost:4000/graphql'
+  (typeof window !== 'undefined'
+    ? `${window.location.origin}/api/graphql`
+    : 'http://localhost:3005/api/graphql')
 const httpLink = createHttpLink({ uri: httpUri })
 
-function resolveWsUrl(httpUrl: string): string {
+function resolveWsUrl(fallbackHttpUrl: string): string {
   const env = process.env.NEXT_PUBLIC_GRAPHQL_WS_ENDPOINT
-  if (env && typeof window !== 'undefined') return env
+  if (env) return env
   try {
-    const u = new URL(httpUrl)
+    const base = typeof window !== 'undefined' ? window.location.origin : fallbackHttpUrl
+    const u = new URL('/api/graphql', base)
     u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:'
     return u.toString()
   } catch {
-    return 'ws://localhost:4000/graphql'
+    return 'ws://localhost:3005/api/graphql'
   }
 }
 
@@ -157,12 +160,16 @@ const cache = new InMemoryCache({
 
 // Subscriptions link (browser)
 let splitLink = httpLink
-if (typeof window !== 'undefined' && GraphQLWsLink && createWsClient) {
-  const wsUrl = resolveWsUrl(httpUri)
-  const wsClient = createWsClient({ url: wsUrl, connectionParams: () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('auth-token') : null
-    return token ? { headers: { Authorization: `Bearer ${token}` } } : {}
-  } })
+const explicitWsEndpoint = process.env.NEXT_PUBLIC_GRAPHQL_WS_ENDPOINT
+if (typeof window !== 'undefined' && GraphQLWsLink && createWsClient && explicitWsEndpoint) {
+  const wsUrl = resolveWsUrl(explicitWsEndpoint)
+  const wsClient = createWsClient({
+    url: wsUrl,
+    connectionParams: () => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth-token') : null
+      return token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+    },
+  })
   const wsLink = new GraphQLWsLink(wsClient)
   splitLink = split(
     ({ query }) => {

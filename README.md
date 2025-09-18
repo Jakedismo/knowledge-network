@@ -87,7 +87,37 @@ bun run migrate
 bun run dev
 ```
 
-### Docker Compose (Local Deployment)
+Open [http://localhost:3000](http://localhost:3000) to see the application.
+
+## ▶️ Running the Stack
+
+### Main App (Next.js + API)
+
+- `bun run dev` starts the Next.js app, GraphQL API, and REST routes on [http://localhost:3000](http://localhost:3000). The dev server hot-reloads changes and proxies database calls through Prisma.
+- Ensure Postgres, Redis, and (optionally) Elasticsearch are running locally; credentials come from `.env.local`.
+- When you need a production-like build, use `bun run build` followed by `bun run start` (served from `.next/standalone`).
+- Apply Prisma migrations before first run with `bun run migrate`.
+
+### Storybook (Design System)
+
+- `bun run storybook` launches the component workbench on [http://localhost:6006](http://localhost:6006).
+- Build a static Storybook bundle with `bun run build-storybook` (outputs to `storybook-static/`).
+- Storybook consumes the same Tailwind, Radix, and theme tokens as the app, so design changes stay in sync.
+
+### Backend Services
+
+- **Next.js API** routes and the GraphQL endpoint (`/api/graphql`) run alongside the main app when you execute `bun run dev` or `bun run start`.
+- **Realtime collaboration** is optional but recommended for editor sessions. Start it with `bun run realtime` (Bun WebSocket server on port 3005) or `bun run realtime:elysia` if you prefer the Elysia wrapper. Health check: `curl http://localhost:3005/health`.
+- The realtime server reads `COLLAB_PORT`, `COLLAB_WS_PATH`, and `JWT_SECRET`; align these with the app’s `NEXT_PUBLIC_COLLAB_WS_URL` so clients connect correctly.
+
+### How the Pieces Fit Together
+
+- The Next.js app renders UI, handles authentication, and talks to Prisma-powered services (Postgres, Redis, Elasticsearch) through `/api` and `/api/graphql`.
+- The realtime server stores CRDT snapshots in `data/collab/` and broadcasts updates that the editor consumes via `NEXT_PUBLIC_COLLAB_WS_URL`.
+- Storybook reuses the same component library (`src/components/ui`) and Tailwind theme, letting you iterate on UI states before shipping them to pages.
+- Shared environment files (`.env.local`, `.env.docker`) keep ports, secrets, and service URLs aligned across runtimes.
+
+### Docker & Compose
 
 ```bash
 # Build and start core services (app, Postgres, Redis, Elasticsearch)
@@ -104,17 +134,16 @@ docker compose down
 ```
 
 Notes:
+
 - Environment defaults live in `.env.docker`; adjust secrets or service URLs there before running.
 - Prisma migrations execute automatically on container start (`bunx prisma migrate deploy`).
 - Data persists through named volumes (`postgres-data`, `redis-data`, `es-data`, `uploads-data`, `collab-data`).
 - The realtime service is optional; enable the `realtime` profile when collaborative editing is required.
 - Kibana is gated behind the `observability` profile to keep the default stack lightweight.
 
-Open [http://localhost:3000](http://localhost:3000) to see the application.
-
 ### Environment Variables
 
-Create a `.env.local` file with the following variables:
+Create a `.env.local` file with the following variables: See the env.example for extensive feature configuration and dev mode settings
 
 ```env
 # Application

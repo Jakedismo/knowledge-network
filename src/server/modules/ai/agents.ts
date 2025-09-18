@@ -2,7 +2,7 @@ import { aiConfig } from './config'
 import { resolveModel } from './models'
 import type { AgentInvokeInput, AgentInvokeResultChunk, AgentInvokeFullResult } from './types'
 import { renderPrompt, BASE_SYSTEM_PROMPT } from './prompt'
-import { runWithAgentsSDK } from './agents-sdk-adapter'
+import { runWithAgentsSDK, runWithAgentsSDKStream } from './agents-sdk-adapter'
 
 type OpenAIClient = any // shimmed in types/shims.d.ts
 
@@ -33,9 +33,8 @@ export async function invokeAgent(
 ): Promise<AgentInvokeFullResult | AsyncIterable<AgentInvokeResultChunk>> {
   // Optional Agents SDK path (default on)
   if ((process.env.AI_ENGINE ?? 'agents').toLowerCase() === 'agents') {
-    // Streaming via Agents SDK is out of scope here; use non-stream
     if (input.stream) {
-      throw new Error('Streaming not supported with AI_ENGINE=agents in this phase')
+      return runWithAgentsSDKStream(input)
     }
     return runWithAgentsSDK(input)
   }

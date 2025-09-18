@@ -5,7 +5,24 @@ import { SecurityService } from '@/server/modules/integrations/security.service'
 
 const integrationManager = new IntegrationManager();
 const webhookService = new WebhookService();
-const securityService = new SecurityService();
+
+let securityService: SecurityService | null = null;
+
+const getSecurityService = (): SecurityService | null => {
+  if (!securityService) {
+    try {
+      const masterKey =
+        process.env.ENCRYPTION_MASTER_KEY || 'dev-master-key-change-me';
+      const redisUrl = process.env.REDIS_URL;
+      securityService = new SecurityService(masterKey, redisUrl);
+    } catch (error) {
+      console.warn('SecurityService initialization failed:', error);
+      return null;
+    }
+  }
+
+  return securityService;
+};
 
 /**
  * Webhook receiver endpoint
@@ -167,7 +184,7 @@ async function validateWebhookSignature(
       // GitHub uses HMAC-SHA256 with 'sha256=' prefix
       const githubSignature = headers['x-hub-signature-256'];
       if (!githubSignature) return false;
-      return securityService.validateWebhookSignature(secret, body, githubSignature);
+      return validateSignatureWithFallback(secret, body, githubSignature);
 
     case 'stripe':
       // Stripe uses HMAC-SHA256
@@ -195,8 +212,8 @@ async function validateWebhookSignature(
                        headers['x-signature'] ||
                        headers['x-hub-signature'];
       if (!signature) return true; // No signature header, allow
-      return securityService.validateWebhookSignature(secret, body, signature);
-  }
+      return validateSignatureWithFallback(secret, body, signature);
+}
 }
 
 /**
@@ -328,4 +345,34 @@ async function storeWebhookEvent(data: {
     eventType: data.eventType,
     processedAt: data.processedAt,
   });
+}
+
+function validateSignatureWithFallback(
+  secret: string,
+  payload: string,
+  signature: string
+): boolean {
+  const service = getSecurityService();
+  if (service) {
+    return service.validateWebhookSignature(secret, payload, signature);
+  }
+
+  try {
+    const data = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    const expected = `sha256=${require('crypto')
+      .createHash('sha256')
+      .update(secret + data)
+      .digest('hex')}`;
+    const expectedBuf = Buffer.from(expected);
+    const receivedBuf = Buffer.from(signature);
+
+    if (expectedBuf.length !== receivedBuf.length) {
+      return false;
+    }
+
+    return require('crypto').timingSafeEqual(expectedBuf, receivedBuf);
+  } catch (error) {
+    console.warn('Signature validation fallback failed:', error);
+    return false;
+  }
 }

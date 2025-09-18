@@ -211,6 +211,7 @@ function sanitizeContext(input: unknown): AssistantContext {
     const tags = candidate.tags.filter((tag: unknown): tag is string => typeof tag === 'string' && tag.trim().length > 0)
     if (tags.length) ctx.tags = tags
   }
+  if (typeof candidate.confirm === 'boolean') ctx.confirm = candidate.confirm
   return ctx
 }
 

@@ -1,98 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
+import { builtinTemplates } from '@/lib/templates/library'
 
-export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams
-    const query = searchParams.get('q') || ''
-    const category = searchParams.get('category') || ''
-    const publicOnly = searchParams.get('public') === 'true'
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const q = (searchParams.get('q') || '').trim().toLowerCase()
 
-    // Build where clause
-    const where: any = {}
-
-    if (query) {
-      where.OR = [
-        { title: { contains: query } },
-        { description: { contains: query } }
-      ]
-    }
-
-    if (category) {
-      where.category = category
-    }
-
-    if (publicOnly) {
-      where.isPublic = true
-    }
-
-    // Fetch templates from database
-    const templates = await prisma.template.findMany({
-      where,
-      orderBy: {
-        usageCount: 'desc'
-      },
-      take: 20
-    })
-
-    // Parse tags from JSON string
-    const templatesWithParsedTags = templates.map(template => ({
-      ...template,
-      tags: JSON.parse(template.tags || '[]')
+  const items = builtinTemplates
+    .map((t) => ({
+      id: t.id,
+      title: t.name,
+      description: t.description,
+      version: t.version,
+      visibility: t.visibility,
+      category: t.category,
+      tags: t.keywords ?? [],
     }))
-
-    return NextResponse.json({
-      templates: templatesWithParsedTags,
-      total: templatesWithParsedTags.length
-    })
-  } catch (error) {
-    console.error('Templates API error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch templates' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const {
-      title,
-      description,
-      content,
-      category = 'general',
-      tags = [],
-      isPublic = false
-    } = body
-
-    if (!title || !content) {
-      return NextResponse.json(
-        { error: 'Title and content are required' },
-        { status: 400 }
-      )
-    }
-
-    const template = await prisma.template.create({
-      data: {
-        title,
-        description,
-        content,
-        category,
-        tags: JSON.stringify(tags),
-        isPublic
-      }
+    .filter((t) => {
+      if (!q) return true
+      const hay = [t.title, t.description, t.category, ...(t.tags ?? [])]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return hay.includes(q)
     })
 
-    return NextResponse.json({
-      ...template,
-      tags: JSON.parse(template.tags || '[]')
-    }, { status: 201 })
-  } catch (error) {
-    console.error('Template creation error:', error)
-    return NextResponse.json(
-      { error: 'Failed to create template' },
-      { status: 500 }
-    )
-  }
+  return NextResponse.json({ templates: items })
 }
+

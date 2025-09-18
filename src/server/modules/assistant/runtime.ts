@@ -284,9 +284,10 @@ async function runFactCheck(request: FactCheckExecutionRequest): Promise<FactChe
 }
 
 const CHAT_INSTRUCTIONS = [
-  'You are the Knowledge Network copilot. Answer user questions using the provided context.',
-  'Respond with actionable insight in ≤180 words. Offer next steps or follow-up ideas when appropriate.',
-  'If the context is insufficient, explicitly state what else you need.',
+  'You are the Knowledge Network copilot. Prefer calling available tools to search or act on workspace data rather than guessing.',
+  'For READ actions (search/list/get), call tools directly. For WRITE actions (create/update/move/delete/attach), first ask for any missing parameters and require explicit confirmation (`confirm=true`) before executing.',
+  'When proposing a WRITE, summarize the exact change succinctly then ask: "Proceed?". After confirmation, include confirm=true in the tool call.',
+  'Keep answers ≤ 180 words. Provide clear next steps. Never fabricate workspace data not returned by tools.',
 ].join(' ')
 
 const SUGGEST_INSTRUCTIONS = [
@@ -296,8 +297,8 @@ const SUGGEST_INSTRUCTIONS = [
 ].join(' ')
 
 const RESEARCH_INSTRUCTIONS = [
-  'Synthesize quick research insights. Return JSON {"items":[{title,snippet,source:"kb|web",url?}]} ordered by relevance.',
-  'When data is missing, create helpful summaries from prior knowledge instead of returning empty results.',
+  'Synthesize insights. Prefer using tools to search workspace when scope includes internal data. Return JSON {"items":[{title,snippet,source:"kb|web",url?}]} ordered by relevance.',
+  'If no internal results found, state that explicitly and propose next search parameters.',
   'Return ONLY JSON.',
 ].join(' ')
 
@@ -375,6 +376,7 @@ function compactContext(context: AssistantContext | undefined): AssistantContext
   if (context.pageTitle) next.pageTitle = context.pageTitle
   if (context.collectionId) next.collectionId = context.collectionId
   if (context.tags && context.tags.length) next.tags = context.tags
+   if (typeof context.confirm === 'boolean') next.confirm = context.confirm
   return next
 }
 

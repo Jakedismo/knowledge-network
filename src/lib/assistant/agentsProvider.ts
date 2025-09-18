@@ -103,9 +103,33 @@ export class AgentsAssistantProvider implements AssistantProvider {
 }
 
 async function callAssistant<T>(body: Record<string, unknown>): Promise<T> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  // Attach auth if available (JWT in 'auth-token' or token pair in 'auth_tokens')
+  try {
+    if (typeof window !== 'undefined') {
+      const bearer = window.localStorage.getItem('auth-token')
+      if (bearer) headers['Authorization'] = `Bearer ${bearer}`
+      if (!bearer) {
+        const raw = window.localStorage.getItem('auth_tokens')
+        if (raw) {
+          const parsed = JSON.parse(raw) as { accessToken?: string }
+          if (parsed?.accessToken) headers['Authorization'] = `Bearer ${parsed.accessToken}`
+        }
+      }
+      // Also include dev headers to satisfy scaffold guards if JWT verification is not configured
+      const payload = decodeJwtPayload(bearer)
+      if (payload?.sub) headers['x-user-id'] = String(payload.sub)
+      if (payload?.workspaceId) headers['x-workspace-id'] = String(payload.workspaceId)
+      // Dev overrides
+      if (!headers['x-user-id'] && process.env.NEXT_PUBLIC_DEV_USER_ID) headers['x-user-id'] = String(process.env.NEXT_PUBLIC_DEV_USER_ID)
+      if (!headers['x-workspace-id'] && process.env.NEXT_PUBLIC_DEV_WORKSPACE_ID) headers['x-workspace-id'] = String(process.env.NEXT_PUBLIC_DEV_WORKSPACE_ID)
+    }
+  } catch {
+    // ignore
+  }
   const res = await fetch('/api/ai/execute', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   })
   if (!res.ok) {
@@ -113,4 +137,16 @@ async function callAssistant<T>(body: Record<string, unknown>): Promise<T> {
     throw new Error(`AI execute failed: ${res.status} ${text}`)
   }
   return (await res.json()) as T
+}
+
+function decodeJwtPayload(token: string | null): any | null {
+  if (!token) return null
+  const parts = token.split('.')
+  if (parts.length !== 3) return null
+  try {
+    const json = atob(parts[1])
+    return JSON.parse(json)
+  } catch {
+    return null
+  }
 }
