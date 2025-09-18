@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { authenticateRequest } from '@/app/api/recommendations/_auth'
+import { requireAuth, requireWorkspaceAccess, HttpError } from '@/app/api/recommendations/_auth'
 import { getRecommendationService } from '@/server/modules/recommendations/registry'
 
 const eventSchema = z.object({
-  userId: z.string().min(1),
   workspaceId: z.string().min(1),
   type: z.enum([
     'view',
@@ -29,23 +28,21 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const payload = eventSchema.parse(body)
 
-    const authUser = await authenticateRequest(request, payload.userId)
-    if (!authUser) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-    }
-    if (authUser !== payload.userId) {
-      return NextResponse.json({ error: 'User mismatch' }, { status: 403 })
-    }
+    const auth = await requireAuth(request)
+    await requireWorkspaceAccess(auth, payload.workspaceId)
 
     const service = getRecommendationService()
     const persisted = await service.recordEvent({
-      id: undefined,
       ...payload,
+      userId: auth.userId,
       timestamp: payload.timestamp ?? Date.now(),
     })
 
     return NextResponse.json({ event: persisted }, { status: 201 })
   } catch (error) {
+    if (error instanceof HttpError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid event payload', details: error.errors }, { status: 400 })
     }
@@ -53,4 +50,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to record event' }, { status: 500 })
   }
 }
-

@@ -48,12 +48,16 @@ export class RecommendationService {
       workspaceId,
       ...(typeof nowMs === 'number' ? { nowMs } : {}),
     })
+    const byId = new Map(items.map((item) => [item.id, item]))
     const counts = decayedCountsByKey(events, (e) => e.knowledgeId, nowMs ?? Date.now(), 12)
     const rankedItems = [...counts.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
-      .map(([id, score]) => ({ id, score, payload: items.find((d) => d.id === id)! }))
-      .filter((entry) => entry.payload)
+      .map(([id, score]) => {
+        const payload = id ? byId.get(id) : undefined
+        return payload ? { id, score, payload } : null
+      })
+      .filter((entry): entry is Scored<Content> => entry !== null)
     return { topics, items: rankedItems }
   }
 
@@ -67,12 +71,16 @@ export class RecommendationService {
       workspaceId,
       ...(typeof nowMs === 'number' ? { nowMs } : {}),
     })
+    const trendingTagIds = trend
+      .map((t) => t.key)
+      .filter((key) => !key.startsWith('doc:'))
+
     return identifyKnowledgeGaps({
       userId,
       workspaceId,
       items,
       events,
-      trendingTagIds: trend.map((t) => t.key),
+      trendingTagIds,
       ...(typeof nowMs === 'number' ? { nowMs } : {}),
     })
   }

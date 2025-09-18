@@ -31,7 +31,11 @@ Scope: Auto‑tagging, summarization, concepts/entities, readability & quality s
   - Readability: Flesch/FK, Fog, SMOG, ARI, Coleman‑Liau, LIX, RIX.
   - Quality Score: Weighted signals (length adequacy, readability, repetition, structure, language confidence).
   - Sentiment: Small embedded lexicon for offline scoring.
-  - Translation: Local phrasebook stub + identity; provider interface abstracted for later pluggable remote providers.
+- Translation: Local phrasebook stub + identity; provider interface abstracted for later pluggable remote providers.
+
+### Runtime Controls
+
+- `CONTENT_INTEL_ENRICH` (default: enabled). Set to `0` to disable enrichment during knowledge create/update. When disabled, APIs remain available but server will not auto-enrich documents.
 
 ## Integration Points
 

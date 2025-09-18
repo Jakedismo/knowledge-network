@@ -1,4 +1,5 @@
 import { MockAssistantProvider } from './mockProvider'
+import { AgentsAssistantProvider } from './agentsProvider'
 import type { AssistantProvider, AssistantProviderOptions } from './types'
 
 export function createAssistantProvider(opts?: Partial<AssistantProviderOptions>): AssistantProvider {
@@ -7,8 +8,9 @@ export function createAssistantProvider(opts?: Partial<AssistantProviderOptions>
     case 'mock':
     default:
       return new MockAssistantProvider(opts)
+    case 'agents':
+      return new AgentsAssistantProvider(opts)
   }
 }
 
 export * from './types'
-

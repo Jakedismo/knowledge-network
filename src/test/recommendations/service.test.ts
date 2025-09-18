@@ -1,16 +1,14 @@
-import { describe, it, expect, beforeAll } from 'vitest'
-import { getRecommendationService, getDemoWorkspaceId } from '@/server/modules/recommendations/registry'
+import { describe, it, expect } from 'vitest'
+import { InMemoryRecommendationDataSource } from '@/server/modules/recommendations/data-source'
+import { RecommendationService } from '@/server/modules/recommendations/service'
+import { seedDemoData } from '@/server/modules/recommendations/demo-data'
 
-const workspaceId = getDemoWorkspaceId()
+const dataSource = new InMemoryRecommendationDataSource()
+const workspaceId = seedDemoData(dataSource)
+const service = new RecommendationService(dataSource)
 const userId = 'u_me'
 
 describe('RecommendationService (demo data)', () => {
-  let service = getRecommendationService()
-
-  beforeAll(() => {
-    service = getRecommendationService()
-  })
-
   it('returns personalized results for demo user', async () => {
     const results = await service.personalized({ userId, workspaceId, options: { maxResults: 5 } })
     expect(results.length).toBeGreaterThan(0)

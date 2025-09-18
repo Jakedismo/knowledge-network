@@ -7,7 +7,8 @@ module.exports = {
   addons: [
     '@storybook/addon-essentials',
     '@storybook/addon-interactions',
-    '@storybook/addon-a11y'
+    '@storybook/addon-a11y',
+    '@storybook/addon-webpack5-compiler-swc'
   ],
   framework: {
     name: '@storybook/react-webpack5',
@@ -47,7 +48,59 @@ module.exports = {
       'next/link': require('path').resolve(__dirname, './mocks/NextLink.tsx'),
       'next/router': require('path').resolve(__dirname, './mocks/NextRouter.ts'),
       'next/navigation': require('path').resolve(__dirname, './mocks/NextNavigation.ts'),
+      'react-dom/client': false,
     }
+    config.module = config.module || {}
+    config.module.rules = config.module.rules || []
+    config.module.rules.push(
+      {
+        test: /\.tsx?$/,
+        exclude: /node_modules/,
+        use: [
+          {
+            loader: require.resolve('swc-loader'),
+            options: {
+              jsc: {
+                parser: {
+                  syntax: 'typescript',
+                  tsx: true,
+                  decorators: true,
+                },
+                transform: {
+                  react: {
+                    runtime: 'automatic',
+                    importSource: 'react',
+                  },
+                },
+              },
+            },
+          },
+        ],
+      },
+      {
+        test: /\.jsx?$/,
+        exclude: /node_modules/,
+        use: [
+          {
+            loader: require.resolve('swc-loader'),
+            options: {
+              jsc: {
+                parser: {
+                  syntax: 'ecmascript',
+                  jsx: true,
+                },
+                transform: {
+                  react: {
+                    runtime: 'automatic',
+                    importSource: 'react',
+                  },
+                },
+              },
+            },
+          },
+        ],
+      }
+    )
     return config
   }
 }
