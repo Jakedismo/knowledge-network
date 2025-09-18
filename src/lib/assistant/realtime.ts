@@ -364,15 +364,12 @@ export class RealtimeClient {
 
     // Send input_audio_buffer.commit to finalize the audio input
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      // Commit the audio buffer
       this.ws.send(JSON.stringify({ type: 'input_audio_buffer.commit' }))
 
-      // Trigger response generation after committing audio
-      this.ws.send(JSON.stringify({
-        type: 'response.create',
-        response: {
-          modalities: ['text', 'audio']
-        }
-      }))
+      // The server will automatically generate a response after committing audio
+      // We don't need to explicitly trigger response.create for audio input
+      console.log('[RealtimeClient] Audio buffer committed, awaiting response')
     }
 
     // Signal end of input if supported (for SDK)
@@ -723,14 +720,14 @@ export class RealtimeClient {
       throw new Error('WebSocket not connected')
     }
 
-    // Send conversation item with correct format
+    // Send conversation item with correct format for OpenAI Realtime API
     const messageItem = {
       type: 'conversation.item.create',
       item: {
         type: 'message',
         role: 'user',
         content: [{
-          type: 'text',
+          type: 'input_text',  // Changed from 'text' to 'input_text'
           text: text
         }]
       }
@@ -739,7 +736,7 @@ export class RealtimeClient {
     console.log('[RealtimeClient] Sending message:', messageItem)
     this.ws.send(JSON.stringify(messageItem))
 
-    // Trigger response generation
+    // Trigger response generation with minimal required fields
     const responseCreate = {
       type: 'response.create',
       response: {
