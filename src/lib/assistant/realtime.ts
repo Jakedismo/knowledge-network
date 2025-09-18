@@ -17,6 +17,8 @@ export class RealtimeClient {
   private audioEl: HTMLAudioElement | null = null
   private Ctors: { RealtimeSession?: any; RealtimeAgent?: any; OpenAIRealtimeWebRTC?: any } = {}
   private ws: WebSocket | null = null
+  private audioQueue: { itemId: string; audio: ArrayBuffer }[] = []
+  private playbackContext: AudioContext | null = null
 
   constructor(events: RealtimeEvents = {}) {
     this.events = events
@@ -253,7 +255,59 @@ export class RealtimeClient {
         channelCount: 1      // Mono audio
       }
     })
+
     try {
+      // If using direct WebSocket connection, we need to stream audio manually
+      if (this.ws && !this.session) {
+        console.log('[RealtimeClient] Setting up direct audio streaming via WebSocket')
+
+        // Create an AudioContext to process the audio
+        const audioContext = new AudioContext({ sampleRate: 24000 })
+        const source = audioContext.createMediaStreamSource(this.stream)
+
+        // Create a ScriptProcessorNode to capture audio chunks
+        // Buffer size of 2048 samples = ~85ms at 24kHz
+        const processor = audioContext.createScriptProcessor(2048, 1, 1)
+
+        processor.onaudioprocess = (e) => {
+          if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
+
+          const inputData = e.inputBuffer.getChannelData(0)
+
+          // Convert Float32Array to PCM16 (Int16Array)
+          const pcm16 = new Int16Array(inputData.length)
+          for (let i = 0; i < inputData.length; i++) {
+            // Convert from float (-1.0 to 1.0) to int16 (-32768 to 32767)
+            const s = Math.max(-1, Math.min(1, inputData[i]))
+            pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF
+          }
+
+          // Convert to base64 for transmission
+          const buffer = pcm16.buffer
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)))
+
+          // Send audio data to the server
+          const audioMessage = {
+            type: 'input_audio_buffer.append',
+            audio: base64
+          }
+
+          this.ws.send(JSON.stringify(audioMessage))
+        }
+
+        // Connect the nodes
+        source.connect(processor)
+        processor.connect(audioContext.destination)
+
+        // Store the processor so we can disconnect it later
+        (this as any).audioProcessor = processor
+        (this as any).audioContext = audioContext
+
+        console.log('[RealtimeClient] Audio streaming setup complete')
+        return
+      }
+
+      // SDK-based audio handling (for beta API)
       // Preferred per SDK: configure the session with a WebRTC transport layer
       if (this.Ctors.OpenAIRealtimeWebRTC) {
         const transport = new (this.Ctors.OpenAIRealtimeWebRTC)({
@@ -289,9 +343,39 @@ export class RealtimeClient {
   }
 
   async stopMicrophone() {
-    try { this.stream?.getTracks().forEach((t) => t.stop()) } catch {}
+    try {
+      this.stream?.getTracks().forEach((t) => t.stop())
+    } catch {}
     this.stream = null
-    // Signal end of input if supported
+
+    // Clean up audio processor if using direct WebSocket
+    if ((this as any).audioProcessor) {
+      try {
+        (this as any).audioProcessor.disconnect()
+        (this as any).audioProcessor = null
+      } catch {}
+    }
+    if ((this as any).audioContext) {
+      try {
+        (this as any).audioContext.close()
+        (this as any).audioContext = null
+      } catch {}
+    }
+
+    // Send input_audio_buffer.commit to finalize the audio input
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'input_audio_buffer.commit' }))
+
+      // Trigger response generation after committing audio
+      this.ws.send(JSON.stringify({
+        type: 'response.create',
+        response: {
+          modalities: ['text', 'audio']
+        }
+      }))
+    }
+
+    // Signal end of input if supported (for SDK)
     try { await this.session?.finalize?.() } catch {}
   }
 
@@ -538,9 +622,37 @@ export class RealtimeClient {
               this.events.onFinal?.(data.transcript || '')
               break
 
+            case 'response.audio.delta':
+              // Handle incoming audio chunks
+              if (data.delta && this.audioEl) {
+                this.playAudioChunk(data.delta, data.item_id)
+              }
+              break
+
+            case 'response.audio.done':
+              // Audio response completed
+              console.log('[RealtimeClient] Audio response completed')
+              break
+
             case 'response.done':
               // Response completed
               console.log('[RealtimeClient] Response completed')
+              break
+
+            case 'conversation.item.input_audio_transcription.completed':
+              // User's speech was transcribed
+              console.log('[RealtimeClient] User transcript:', data.transcript)
+              this.events.onAny?.('user_transcript', data.transcript)
+              break
+
+            case 'input_audio_buffer.speech_started':
+              console.log('[RealtimeClient] Speech started')
+              this.events.onAny?.('speech_started', null)
+              break
+
+            case 'input_audio_buffer.speech_stopped':
+              console.log('[RealtimeClient] Speech stopped')
+              this.events.onAny?.('speech_stopped', null)
               break
 
             case 'error':
@@ -619,5 +731,43 @@ export class RealtimeClient {
 
     console.log('[RealtimeClient] Triggering response')
     this.ws.send(JSON.stringify(responseCreate))
+  }
+
+  private playAudioChunk(base64Audio: string, itemId: string) {
+    try {
+      // Initialize AudioContext if needed
+      if (!this.playbackContext) {
+        this.playbackContext = new AudioContext({ sampleRate: 24000 })
+      }
+
+      // Decode base64 to ArrayBuffer
+      const binaryString = atob(base64Audio)
+      const len = binaryString.length
+      const bytes = new Uint8Array(len)
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i)
+      }
+
+      // Convert PCM16 to Float32 for Web Audio API
+      const pcm16 = new Int16Array(bytes.buffer)
+      const float32 = new Float32Array(pcm16.length)
+      for (let i = 0; i < pcm16.length; i++) {
+        float32[i] = pcm16[i] / 32768.0 // Convert to -1.0 to 1.0 range
+      }
+
+      // Create an audio buffer
+      const audioBuffer = this.playbackContext.createBuffer(1, float32.length, 24000)
+      audioBuffer.copyToChannel(float32, 0)
+
+      // Create a buffer source and play it
+      const source = this.playbackContext.createBufferSource()
+      source.buffer = audioBuffer
+      source.connect(this.playbackContext.destination)
+      source.start()
+
+      console.log('[RealtimeClient] Playing audio chunk for item:', itemId)
+    } catch (err) {
+      console.error('[RealtimeClient] Error playing audio:', err)
+    }
   }
 }
