@@ -1,3 +1,9 @@
+// Ensure predictable env for tests irrespective of external settings
+process.env.USE_ORG_GUARD = '0'
+process.env.AGENTS_SUMMARIZE_ENABLED = '1'
+process.env.AGENTS_TRANSLATE_ENABLED = '1'
+process.env.OPENAI_AGENTS_MODE = 'local'
+
 import { describe, it, expect } from 'vitest'
 
 describe('Content Intelligence API', () => {

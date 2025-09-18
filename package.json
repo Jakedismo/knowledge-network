@@ -100,7 +100,6 @@
     "@storybook/react": "^8.6.14",
     "@storybook/react-webpack5": "^8.6.14",
     "@storybook/test": "^8.6.14",
-    "@storybook/addon-webpack5-compiler-swc": "^4.0.1",
     "@tailwindcss/aspect-ratio": "^0.4.2",
     "@tailwindcss/forms": "^0.5.7",
     "@tailwindcss/typography": "^0.5.10",
