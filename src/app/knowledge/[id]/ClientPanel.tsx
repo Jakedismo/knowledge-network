@@ -1,19 +1,18 @@
 "use client"
 import * as React from 'react'
-import { ApolloProvider } from '@apollo/client'
+import { ApolloProvider, useQuery } from '@apollo/client'
 import apolloClient from '@/lib/graphql/client'
 import { EditorShell } from '@/components/editor/editor-shell'
 import { EditorOrganizationApolloPanel } from '@/components/organization/EditorOrganizationApolloPanel'
 import { CommentsPanel } from '@/components/comments/CommentsPanel'
 import { MentionNotifications } from '@/components/comments/MentionNotifications'
-import { useQuery } from '@apollo/client'
 import { GET_KNOWLEDGE } from '@/lib/graphql/queries'
 
-export function ClientPanel({ id }: { id: string }) {
+function PanelInner({ id }: { id: string }) {
   const { data } = useQuery(GET_KNOWLEDGE, { variables: { id } })
   const workspaceId = data?.knowledge?.workspace?.id ?? null
   return (
-    <ApolloProvider client={apolloClient}>
+    <>
       <div className="flex items-center justify-end gap-2 p-2">
         <MentionNotifications knowledgeId={id} />
       </div>
@@ -26,6 +25,14 @@ export function ClientPanel({ id }: { id: string }) {
           <CommentsPanel knowledgeId={id} workspaceId={workspaceId} />
         </div>
       </div>
+    </>
+  )
+}
+
+export function ClientPanel({ id }: { id: string }) {
+  return (
+    <ApolloProvider client={apolloClient}>
+      <PanelInner id={id} />
     </ApolloProvider>
   )
 }

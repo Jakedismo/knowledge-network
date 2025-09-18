@@ -3,15 +3,9 @@ import apolloClient from '@/lib/graphql/client'
 import { CREATE_COMMENT, UPDATE_COMMENT, DELETE_COMMENT, RESOLVE_COMMENT } from '@/lib/graphql/mutations'
 import { GET_COMMENTS, GET_USERS } from '@/lib/graphql/queries'
 
-async function json<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `HTTP ${res.status}`)
-  }
-  return (await res.json()) as T
-}
+// REST fallback utilities removed now that GraphQL backend is available
 
-function toModel(n: any): CommentModel {
+export function toModel(n: any): CommentModel {
   return {
     id: n.id,
     knowledgeId: n.knowledgeId,
@@ -34,63 +28,76 @@ async function listGraphQL(knowledgeId: string): Promise<CommentModel[]> {
 }
 
 async function createGraphQL(input: CreateCommentInput): Promise<CommentModel> {
-  const res = await apolloClient.mutate({ mutation: CREATE_COMMENT, variables: { input } })
+  const res = await apolloClient.mutate({
+    mutation: CREATE_COMMENT,
+    variables: { input },
+    update(cache, { data }) {
+      const created = data?.createComment
+      if (!created) return
+      const vars = { knowledgeId: input.knowledgeId }
+      try {
+        cache.updateQuery({ query: GET_COMMENTS, variables: vars }, (prev: any) => {
+          if (!prev?.comments) return prev
+          const node = created
+          const edge = { node, cursor: node.id }
+          const edges = [edge, ...(prev.comments.edges ?? [])]
+          return { ...prev, comments: { ...prev.comments, edges, totalCount: (prev.comments.totalCount ?? 0) + 1 } }
+        })
+      } catch {
+        // noop
+      }
+    },
+  })
   return toModel(res.data?.createComment)
 }
 
 async function updateGraphQL(id: string, input: UpdateCommentInput): Promise<CommentModel> {
-  const res = await apolloClient.mutate({ mutation: UPDATE_COMMENT, variables: { id, input } })
+  const res = await apolloClient.mutate({
+    mutation: UPDATE_COMMENT,
+    variables: { id, input },
+    update(cache, { data }) {
+      const updated = data?.updateComment
+      if (!updated) return
+      // Walk edges and replace the node
+      try {
+        // We don't know the knowledgeId from vars; rely on existing queries in cache (best-effort)
+        const ids = cache.extract()
+        // no-op; update relies on normalized cache
+      } catch {
+        // noop
+      }
+    },
+  })
   return toModel(res.data?.updateComment)
 }
 
 async function deleteGraphQL(id: string): Promise<void> {
-  await apolloClient.mutate({ mutation: DELETE_COMMENT, variables: { id } })
+  await apolloClient.mutate({
+    mutation: DELETE_COMMENT,
+    variables: { id },
+    update(cache) {
+      // naive approach: evict the entity if normalized id known
+      try {
+        cache.evict({ id: cache.identify({ __typename: 'Comment', id }) })
+        cache.gc()
+      } catch {
+        // noop
+      }
+    },
+  })
 }
 
 export const commentApi = {
-  async list(knowledgeId: string, init?: RequestInit): Promise<CommentModel[]> {
-    try {
-      return await listGraphQL(knowledgeId)
-    } catch {
-      // Fallback to REST mock if GraphQL is unavailable locally
-      const res = await fetch(`/api/comments?knowledgeId=${encodeURIComponent(knowledgeId)}`, {
-        method: 'GET',
-        headers: { 'content-type': 'application/json', 'x-user-id': 'demo-user', ...(init?.headers ?? {}) },
-        ...init,
-      })
-      const { data } = await json<{ data: CommentModel[] }>(res)
-      return data
-    }
+  async list(knowledgeId: string): Promise<CommentModel[]> {
+    return listGraphQL(knowledgeId)
   },
 
-  async create(input: CreateCommentInput, init?: RequestInit): Promise<CommentModel> {
-    try {
-      return await createGraphQL(input)
-    } catch {
-      const res = await fetch('/api/comments', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-user-id': 'demo-user', ...(init?.headers ?? {}) },
-        body: JSON.stringify(input),
-        ...init,
-      })
-      const { data } = await json<{ data: CommentModel }>(res)
-      return data
-    }
+  async create(input: CreateCommentInput): Promise<CommentModel> {
+    return createGraphQL(input)
   },
 
-  async update(id: string, input: UpdateCommentInput, init?: RequestInit): Promise<CommentModel> {
-    try {
-      return await updateGraphQL(id, input)
-    } catch {
-      const res = await fetch(`/api/comments/${id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json', 'x-user-id': 'demo-user', ...(init?.headers ?? {}) },
-        body: JSON.stringify(input),
-        ...init,
-      })
-      const { data } = await json<{ data: CommentModel }>(res)
-      return data
-    }
+  async update(id: string, input: UpdateCommentInput): Promise<CommentModel> {
+    return updateGraphQL(id, input)
   },
 
   async resolve(id: string): Promise<CommentModel> {
@@ -98,23 +105,18 @@ export const commentApi = {
     return toModel(res.data?.resolveComment)
   },
 
-  async remove(id: string, init?: RequestInit): Promise<void> {
-    try {
-      await deleteGraphQL(id)
-    } catch {
-      const res = await fetch(`/api/comments/${id}`, { method: 'DELETE', headers: { 'x-user-id': 'demo-user', ...(init?.headers ?? {}) }, ...(init ?? {}) })
-      await json<{ ok: boolean }>(res)
-    }
+  async remove(id: string): Promise<void> {
+    await deleteGraphQL(id)
   },
 
-  async listReplies(_id: string, _init?: RequestInit): Promise<CommentModel[]> {
+  async listReplies(_id: string): Promise<CommentModel[]> {
     // With GraphQL we fetch nested replies in list(). Keep for compatibility; not used.
     return []
   },
 }
 
 export const userSuggest = {
-  async search(q: string, workspaceId?: string, init?: RequestInit): Promise<{ id: string; displayName: string; avatarUrl?: string }[]> {
+  async search(q: string, workspaceId?: string): Promise<{ id: string; displayName: string; avatarUrl?: string }[]> {
     // Prefer GraphQL if workspaceId is available
     if (workspaceId) {
       try {
@@ -126,8 +128,6 @@ export const userSuggest = {
         // fall through to REST mock
       }
     }
-    const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`, { method: 'GET', headers: { 'x-user-id': 'demo-user', ...(init?.headers ?? {}) }, ...(init ?? {}) })
-    const { data } = await json<{ data: { id: string; displayName: string; avatarUrl?: string }[] }>(res)
-    return data
+    return []
   },
 }

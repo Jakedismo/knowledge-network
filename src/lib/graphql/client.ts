@@ -1,12 +1,40 @@
-import { ApolloClient, InMemoryCache, createHttpLink, from } from '@apollo/client'
+import { ApolloClient, InMemoryCache, createHttpLink, from, split } from '@apollo/client'
 import { logger } from '@/lib/logger'
 import { setContext } from '@apollo/client/link/context'
 import { onError } from '@apollo/client/link/error'
+import { getMainDefinition } from '@apollo/client/utilities'
+// Subscriptions (browser only)
+let GraphQLWsLink: any = null
+let createWsClient: any = null
+if (typeof window !== 'undefined') {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    GraphQLWsLink = require('@apollo/client/link/subscriptions').GraphQLWsLink
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    createWsClient = require('graphql-ws').createClient
+  } catch {
+    // subscriptions not available
+  }
+}
 
 // GraphQL endpoint configuration
-const httpLink = createHttpLink({
-  uri: process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql',
-})
+const httpUri =
+  process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT ||
+  process.env.GRAPHQL_ENDPOINT ||
+  'http://localhost:4000/graphql'
+const httpLink = createHttpLink({ uri: httpUri })
+
+function resolveWsUrl(httpUrl: string): string {
+  const env = process.env.NEXT_PUBLIC_GRAPHQL_WS_ENDPOINT
+  if (env && typeof window !== 'undefined') return env
+  try {
+    const u = new URL(httpUrl)
+    u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:'
+    return u.toString()
+  } catch {
+    return 'ws://localhost:4000/graphql'
+  }
+}
 
 // Authentication link
 const authLink = setContext((_, { headers }) => {
@@ -127,28 +155,33 @@ const cache = new InMemoryCache({
   },
 })
 
+// Subscriptions link (browser)
+let splitLink = httpLink
+if (typeof window !== 'undefined' && GraphQLWsLink && createWsClient) {
+  const wsUrl = resolveWsUrl(httpUri)
+  const wsClient = createWsClient({ url: wsUrl, connectionParams: () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth-token') : null
+    return token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+  } })
+  const wsLink = new GraphQLWsLink(wsClient)
+  splitLink = split(
+    ({ query }) => {
+      const def = getMainDefinition(query)
+      return def.kind === 'OperationDefinition' && def.operation === 'subscription'
+    },
+    wsLink,
+    httpLink,
+  )
+}
+
 // Create Apollo Client
 export const apolloClient = new ApolloClient({
-  link: from([
-    errorLink,
-    authLink,
-    httpLink,
-  ]),
+  link: from([errorLink, authLink, splitLink]),
   cache,
   defaultOptions: {
-    watchQuery: {
-      errorPolicy: 'all',
-      notifyOnNetworkStatusChange: true,
-    },
-    query: {
-      errorPolicy: 'all',
-    },
-  mutate: {
-    errorPolicy: 'all',
-  },
-  },
-  devtools: {
-    enabled: process.env.NODE_ENV === 'development',
+    watchQuery: { errorPolicy: 'all', notifyOnNetworkStatusChange: true },
+    query: { errorPolicy: 'all' },
+    mutate: { errorPolicy: 'all' },
   },
 })
 

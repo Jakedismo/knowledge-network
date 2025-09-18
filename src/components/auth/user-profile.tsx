@@ -249,8 +249,8 @@ export function UserProfile({ onClose }: UserProfileProps) {
               <div className="flex items-center space-x-4">
                 <Avatar
                   size="2xl"
-                  src={avatarPreview || user?.avatarUrl}
-                  alt={user?.displayName}
+                  src={avatarPreview ?? (user?.avatarUrl ?? null)}
+                  alt={user?.displayName ?? ''}
                   initials={user?.displayName ? getInitials(user.displayName) : 'U'}
                 />
                 <div className="space-y-2">

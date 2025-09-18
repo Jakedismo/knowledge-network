@@ -209,4 +209,3 @@ export class MCPWebSocketCollaborationProvider implements CollaborationProvider 
     }
   }
 }
-// @ts-nocheck

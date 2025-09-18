@@ -2,7 +2,7 @@
 import * as React from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { CommentModel, CommentStatus, CommentPositionData } from '@/types/comments'
-import { commentApi } from '@/lib/comments/api'
+import { commentApi, toModel } from '@/lib/comments/api'
 import apolloClient from '@/lib/graphql/client'
 import { GET_KNOWLEDGE } from '@/lib/graphql/queries'
 import { COMMENT_ADDED } from '@/lib/graphql/subscriptions'
@@ -68,7 +68,23 @@ export function CommentsPanel({ knowledgeId, workspaceId = null }: Props) {
     try {
       // @ts-expect-error Apollo link may not support subscriptions locally; catch failures
       const obs = apolloClient.subscribe({ query: COMMENT_ADDED, variables: { knowledgeId } })
-      const sub = obs.subscribe({ next: () => reload(), error: () => {} })
+      const sub = obs.subscribe({
+        next: (payload) => {
+          const c = payload?.data?.commentAdded
+          if (!c) return
+          const m = toModel(c)
+          setThreads((prev) => {
+            // if reply
+            if (m.parentId) {
+              return prev.map((t) => (t.id === m.parentId ? { ...t, replies: [...(t.replies ?? []), m] } : t))
+            }
+            // new root thread if not exists
+            if (prev.some((t) => t.id === m.id)) return prev
+            return [m, ...prev]
+          })
+        },
+        error: () => {},
+      })
       unsub = () => sub.unsubscribe()
     } catch {
       // ignore

@@ -837,3 +837,14 @@ export const logger = {
 ```
 
 These development guidelines ensure consistent, high-quality code across the Knowledge Network application while maintaining excellent developer experience and application performance.
+## GraphQL Codegen
+
+- Configure endpoint via `NEXT_PUBLIC_GRAPHQL_ENDPOINT` (see `.env.example`).
+- Run codegen to generate operation types: `bun run codegen`.
+- Output: `src/lib/graphql/__generated__/types.ts` (types and operation typings).
+- Integrate gradually by replacing manual payload typings with generated ones.
+
+## Subscriptions (Comments)
+
+- Apollo client auto-configures a WS link when `NEXT_PUBLIC_GRAPHQL_WS_ENDPOINT` is set, falling back to HTTP-only if absent.
+- The Comments panel listens to `commentAdded(knowledgeId)` and updates without full refetch. If WS is not available, it falls back to polling (10s).

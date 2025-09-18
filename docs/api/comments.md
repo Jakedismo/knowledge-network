@@ -1,38 +1,30 @@
 # Comments API (Phase 3B Mock)
 
-Base: Next.js App Router, in-memory store (non-persistent).
+Base: GraphQL (Apollo Client).
 
-Auth: Header-based via `requireAuth` (JWT or `x-user-id` fallback).
+Auth: Apollo link injects `Authorization: Bearer <token>`; access control enforced server-side.
 
-Endpoints:
+Operations:
 
-- GET `/api/comments?knowledgeId=ID`
-  - 200 `{ data: CommentModel[] }`
+- Query `comments(knowledgeId: ID!): CommentConnection!`
+  - Used by `GET_COMMENTS` in `src/lib/graphql/queries.ts`.
 
-- POST `/api/comments`
-  - Body `{ knowledgeId, parentId?, content, mentions?: CommentMention[], positionData?: CommentPositionData|null }`
-  - 201 `{ data: CommentModel }`
+- Mutation `createComment(input: CreateCommentInput!): Comment!`
+  - Used by `CREATE_COMMENT`.
 
-- PATCH `/api/comments/:id`
-  - Body `{ content?, status?: 'open'|'resolved'|'deleted'|'hidden' }`
-  - 200 `{ data: CommentModel }`
+- Mutation `updateComment(id: ID!, input: UpdateCommentInput!): Comment!`
+  - Used by `UPDATE_COMMENT`.
 
-- DELETE `/api/comments/:id`
-  - 200 `{ ok: true }`
+- Mutation `deleteComment(id: ID!): Boolean!`
+  - Used by `DELETE_COMMENT`.
 
-- GET `/api/comments/:id/replies`
-  - 200 `{ data: CommentModel[] }`
+- Mutation `resolveComment(id: ID!): Comment!`
+  - Used by `RESOLVE_COMMENT`.
 
-- POST `/api/comments/:id/replies`
-  - Body `{ content }`
-  - 201 `{ data: CommentModel }`
+- Query `users(workspaceId: ID!): [User!]!`
+  - Used to power @mention suggestions; filtered client-side.
 
-- GET `/api/users/search?q=term`
-  - 200 `{ data: { id, displayName, avatarUrl? }[] }`
+- Subscription `commentAdded(knowledgeId: ID!): Comment!`
+  - Live updates for the panel (if subscription link configured); otherwise 10s polling fallback.
 
 Types: see `src/types/comments.ts`.
-
-Migration to GraphQL:
-- Replace REST calls with Apollo Client mutations/queries per `src/lib/graphql/{mutations,queries}.ts`.
-- Preserve `positionData` and `mentions` in JSON until schema extension.
-

@@ -79,4 +79,3 @@ export class BroadcastCollaborationProvider implements CollaborationProvider {
     }
   }
 }
-// @ts-nocheck

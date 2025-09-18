@@ -373,8 +373,52 @@
       "startTime": "2025-09-17T22:46:02.532Z",
       "command": "Lead Swarm 3D: Review & Approval Workflows for Knowledge Network React Application. FIRST: Read all Phase 1-2 documentation. FOCUS AREA: Review and approval workflow system only. Execute: 1) Customizable review workflow engine, 2) Approval chain configuration and management, 3) Change request tracking and version comparison, 4) Workflow escalation and routing logic, 5) Review assignment and delegation, 6) Audit trail and compliance tracking. DO NOT work on: real-time editing UI, comments system, activity feeds. Coordinate with backend-typescript-architect and frontend-ui-engineer. Maintain 8.5/10 quality threshold. Duration: 12 days. Deliverables: Workflow engine, approval chains, change tracking. Report via A2A guild_workflows_ready.",
       "terminalSessionId": "9a0559c9-751f-4190-9c48-eb22777f0c32"
+    },
+    {
+      "id": "mfonajrx-wnps8",
+      "name": "mfonajrx-wnps8",
+      "provider": "codex",
+      "status": "running",
+      "pid": 45909,
+      "sessionId": "2845aef8-b4f4-4a6b-a213-5764cd13f042",
+      "startTime": "2025-09-18T00:01:01.717Z",
+      "command": "Lead Swarm 4A: AI Integration Framework for Knowledge Network React Application. FIRST: Read all Phase 1-3 documentation and study GPT-5 capabilities using websearch. FOCUS AREA: AI infrastructure and framework ONLY. Execute: 1) OpenAI Agents SDK integration with GPT-5 family models, 2) AI service architecture and API design, 3) Prompt engineering framework with dynamic prompts, 4) AI model configuration and management, 5) Agent-to-agent communication patterns, 6) AI feature authentication and permissions. DO NOT work on: content analysis, chatbot UI, recommendations. Coordinate with backend-typescript-architect and ai-ui-designer. Maintain 8.5/10 quality threshold. Duration: 14 days. Deliverables: AI SDK integration, prompt framework, AI service architecture. Report via A2A guild_ai_framework_ready.",
+      "terminalSessionId": "2845aef8-b4f4-4a6b-a213-5764cd13f042"
+    },
+    {
+      "id": "mfonav6f-phs15",
+      "name": "mfonav6f-phs15",
+      "provider": "codex",
+      "status": "running",
+      "pid": 46699,
+      "sessionId": "591c5aef-be43-48d1-acc1-e14f866a43b0",
+      "startTime": "2025-09-18T00:01:16.534Z",
+      "command": "Lead Swarm 4B: Content Intelligence for Knowledge Network React Application. FIRST: Read all Phase 1-3 documentation. FOCUS AREA: Content analysis and intelligence ONLY. Execute: 1) Auto-tagging system using NLP and AI models, 2) Document summarization for long content, 3) Key concept extraction and entity recognition, 4) Content quality scoring and readability analysis, 5) Translation support for multiple languages, 6) Sentiment analysis for feedback content. DO NOT work on: AI framework, chatbot features, recommendation algorithms. Coordinate with rl-algorithm-designer and backend-typescript-architect. Maintain 8.5/10 quality threshold. Duration: 12 days. Deliverables: Content analysis APIs, auto-tagging system, summarization service. Report via A2A guild_content_intelligence_ready.",
+      "terminalSessionId": "591c5aef-be43-48d1-acc1-e14f866a43b0"
+    },
+    {
+      "id": "mfonb6s0-qihvb",
+      "name": "mfonb6s0-qihvb",
+      "provider": "codex",
+      "status": "running",
+      "pid": 47357,
+      "sessionId": "4b08223d-c176-4512-bb9b-04a96acdeb3d",
+      "startTime": "2025-09-18T00:01:31.437Z",
+      "command": "Lead Swarm 4C: Knowledge Assistant for Knowledge Network React Application. FIRST: Read all Phase 1-3 documentation. FOCUS AREA: AI assistant and chatbot features ONLY. Execute: 1) Q&A chatbot system trained on knowledge base, 2) Smart content suggestions while writing, 3) Fact-checking against existing knowledge, 4) Research assistant for gathering external information, 5) Meeting transcription with action item extraction, 6) Context-aware help and guidance. DO NOT work on: AI infrastructure, content analysis, recommendation systems. Coordinate with prompt-optimization-expert and frontend-ui-engineer. Maintain 8.5/10 quality threshold. Duration: 14 days. Deliverables: Knowledge assistant chatbot, smart suggestions, fact-checking system. Report via A2A guild_knowledge_assistant_ready.",
+      "terminalSessionId": "4b08223d-c176-4512-bb9b-04a96acdeb3d"
+    },
+    {
+      "id": "mfonbhkz-20pgu",
+      "name": "mfonbhkz-20pgu",
+      "provider": "codex",
+      "status": "running",
+      "pid": 48138,
+      "sessionId": "6e78434c-296e-4444-a98b-6836d3068a29",
+      "startTime": "2025-09-18T00:01:45.397Z",
+      "command": "Lead Swarm 4D: Smart Recommendations for Knowledge Network React Application. FIRST: Read all Phase 1-3 documentation. FOCUS AREA: Recommendation algorithms and discovery ONLY. Execute: 1) Content recommendation engine based on user activity, 2) Trending topics detection and analysis, 3) Knowledge gap identification algorithms, 4) Duplicate content detection system, 5) Expert identification within the network, 6) Related content suggestions using AI. DO NOT work on: AI infrastructure, content analysis, chatbot features. Coordinate with rust-systems-expert and backend-typescript-architect. Maintain 8.5/10 quality threshold. Duration: 10 days. Deliverables: Recommendation engine, trending detection, expert identification. Report via A2A guild_recommendations_ready.",
+      "terminalSessionId": "6e78434c-296e-4444-a98b-6836d3068a29"
     }
   ],
-  "lastUpdated": "2025-09-17T22:46:03.283Z",
+  "lastUpdated": "2025-09-18T00:01:46.148Z",
   "version": "1.0.0"
 }

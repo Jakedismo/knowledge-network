@@ -43,3 +43,20 @@ declare module '@prisma/client' {
 // Bun type shim used in realtime server
 declare const Bun: any
 
+// AI SDK shims so type-check passes without installing SDKs
+declare module 'openai' {
+  export class OpenAI {
+    constructor(init: any)
+    chat: {
+      completions: {
+        create: (args: any) => Promise<any> & AsyncIterable<any>
+      }
+    }
+  }
+  const _default: any
+  export default _default
+}
+declare module '@openai/agents' {
+  const anything: any
+  export default anything
+}

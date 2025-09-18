@@ -1,10 +1,11 @@
 # Comments & Mentions System — Architecture (Phase 3B)
 
-Scope: UI-only Comments with threads/replies, @mentions with suggestions, anchoring to document sections, status (open/resolved/deleted/hidden), basic moderation/editing, and mention notifications UI. This phase uses REST mock APIs in the Next.js App Router for rapid integration and will transition to GraphQL when the backend is ready.
+Scope: UI-only Comments with threads/replies, @mentions with suggestions, anchoring to document sections, status (open/resolved/deleted/hidden), basic moderation/editing, and mention notifications UI. Backend is now ready; the implementation uses GraphQL via Apollo Client with optional subscription-based updates.
 
 Key decisions:
-- API Style now: REST under `/api/comments` and `/api/users/search` with in-memory store. No external deps.
-- Future: Align to existing GraphQL schema in `src/lib/graphql/schema.ts` (`Comment`, `CreateCommentInput`, `resolveComment` etc.).
+- API Style now: GraphQL aligned to `src/lib/graphql/schema.ts` (`Comment`, `CreateCommentInput`, `UpdateCommentInput`, `resolveComment`, `comments(knowledgeId)`).
+- Removed REST mention suggestions and migrated to `users(workspaceId)` GraphQL query for @mention suggestions.
+- Optional subscription: `commentAdded(knowledgeId)` is wired when a subscription link is available; otherwise falls back to 10s polling.
 - Anchoring: positionData stores `{ blockId?, headingId?, headingText? }` derived by scanning DOM (`[data-block-id]` or heading elements with `id`).
 - Mentions: UI captures `CommentMention { userId, displayName, start, length }` alongside raw text. Server stores array; future backend can parse/normalize.
 - Security: Routes use `requireAuth` scaffolding. Replace with full auth+RBAC when Phase 1 strictness issues are resolved.
@@ -16,10 +17,10 @@ Non-goals:
 - Real-time sync, activity feeds, and approval workflows (Phase 3A/3C+).
 - Email/push notifications; only a UI badge is included.
 
-Integration plan (to GraphQL):
-1) Map REST payloads to GraphQL mutations: `createComment`, `updateComment`, `resolveComment`, `deleteComment` and queries `comments(knowledgeId)`.
-2) Preserve `positionData` and `mentions` fields via GraphQL JSON scalars until dedicated types exist.
-3) Replace `commentApi` with Apollo hooks + codegen, maintain component props stable.
+Integration details:
+1) GraphQL operations: `createComment`, `updateComment`, `resolveComment`, `deleteComment`, `comments(knowledgeId)`; `users(workspaceId)` for suggestions; `commentAdded` for updates.
+2) `positionData` and `mentions` remain JSON scalars for now; consider promoting to dedicated types later.
+3) `commentApi` abstracts Apollo calls; UI components remain decoupled from transport.
 
 Accessibility:
 - Composer and suggestion list are keyboard accessible (focusable buttons, roles via native elements). Labels and titles included.
@@ -29,4 +30,3 @@ Performance & UX:
 
 Testing notes:
 - Unit render tests can mount `CommentsPanel` with mock fetch; see `commentApi` functions for interception points.
-
