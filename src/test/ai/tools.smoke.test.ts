@@ -33,4 +33,11 @@ describe('AI tools: workspace', () => {
     const del = tools.find((t) => t.name === 'delete_document')!
     await expect(del.execute({ id: 'k1' }, { userId: 'u1', workspaceId: 'w1' })).rejects.toBeTruthy()
   })
+
+  it('publish_template requires confirm', async () => {
+    const { buildWorkspaceAgentTools } = await import('@/server/modules/ai/tools')
+    const tools = buildWorkspaceAgentTools()
+    const pub = tools.find((t) => t.name === 'publish_template')!
+    await expect(pub.execute({ id: 'tpl1', visibility: 'PUBLIC', title: 'T' }, { userId: 'u1', workspaceId: 'w1' })).rejects.toBeTruthy()
+  })
 })

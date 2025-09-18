@@ -11,6 +11,7 @@ import {
   Palette,
   Smartphone,
 } from 'lucide-react'
+import { useTheme } from '@/lib/theme-provider'
 
 const notificationSettings = [
   { label: 'Daily digest', description: 'Summary of collaboration activity and key updates.' },
@@ -25,6 +26,7 @@ const deviceSessions = [
 ]
 
 export default function SettingsPage() {
+  const { theme, setTheme } = useTheme()
   return (
     <AppLayout>
       <div className="space-y-8">
@@ -108,13 +110,25 @@ export default function SettingsPage() {
                   <h3 className="text-sm font-medium text-foreground">Desktop theme</h3>
                   <p className="text-xs text-muted-foreground">Align with system preferences or set explicit mode.</p>
                   <div className="mt-3 flex gap-2 text-xs">
-                    <Button size="sm" variant="secondary">
+                    <Button
+                      size="sm"
+                      variant={theme === 'light' ? 'secondary' : 'outline'}
+                      onClick={() => setTheme('light')}
+                    >
                       Light
                     </Button>
-                    <Button size="sm" variant="outline">
+                    <Button
+                      size="sm"
+                      variant={theme === 'dark' ? 'secondary' : 'outline'}
+                      onClick={() => setTheme('dark')}
+                    >
                       Dark
                     </Button>
-                    <Button size="sm" variant="ghost">
+                    <Button
+                      size="sm"
+                      variant={theme === 'system' ? 'secondary' : 'outline'}
+                      onClick={() => setTheme('system')}
+                    >
                       System
                     </Button>
                   </div>

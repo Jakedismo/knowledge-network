@@ -4,11 +4,12 @@ import { buildWorkspaceAgentTools } from './tools'
 
 export async function runWithAgentsSDK(input: AgentInvokeInput): Promise<AgentInvokeFullResult> {
   // Dynamically import so the project works without the dependency installed
-  let Agent: any, run: any
+  let Agent: any, run: any, toTool: any
   try {
     const mod = await import('@openai/agents')
     Agent = (mod as any).Agent
     run = (mod as any).run
+    toTool = (mod as any).toTool ?? (mod as any).tool
   } catch (err) {
     throw new Error("Agents SDK not installed. Install '@openai/agents' to enable this path.")
   }
@@ -18,12 +19,14 @@ export async function runWithAgentsSDK(input: AgentInvokeInput): Promise<AgentIn
     name: 'KnowledgeNet Backend Agent',
     instructions: input.system ?? BASE_SYSTEM_PROMPT,
     model: input.model ?? 'gpt-5-mini',
-    tools: tools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      parameters: t.parameters,
-      execute: async (args: any) => t.execute(args, { userId: input.userId, workspaceId: input.workspaceId }),
-    })),
+    tools: tools.map((t) =>
+      toTool({
+        name: t.name,
+        description: t.description,
+        parameters: t.parameters,
+        execute: async (args: any) => t.execute(args, { userId: input.userId, workspaceId: input.workspaceId }),
+      })
+    ),
   })
 
   const content = typeof input.input === 'string' ? input.input : JSON.stringify(input.input ?? {})
@@ -45,11 +48,12 @@ export async function runWithAgentsSDK(input: AgentInvokeInput): Promise<AgentIn
 }
 
 export async function runWithAgentsSDKStream(input: AgentInvokeInput): Promise<AsyncIterable<AgentInvokeResultChunk>> {
-  let Agent: any, run: any
+  let Agent: any, run: any, toTool: any
   try {
     const mod = await import('@openai/agents')
     Agent = (mod as any).Agent
     run = (mod as any).run
+    toTool = (mod as any).toTool ?? (mod as any).tool
   } catch (err) {
     async function* errorGen() {
       yield { type: 'error', data: { message: "Agents SDK not installed for streaming" } }
@@ -63,12 +67,14 @@ export async function runWithAgentsSDKStream(input: AgentInvokeInput): Promise<A
     name: 'KnowledgeNet Backend Agent',
     instructions: input.system ?? BASE_SYSTEM_PROMPT,
     model: input.model ?? 'gpt-5-mini',
-    tools: tools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      parameters: t.parameters,
-      execute: async (args: any) => t.execute(args, { userId: input.userId, workspaceId: input.workspaceId }),
-    })),
+    tools: tools.map((t) =>
+      toTool({
+        name: t.name,
+        description: t.description,
+        parameters: t.parameters,
+        execute: async (args: any) => t.execute(args, { userId: input.userId, workspaceId: input.workspaceId }),
+      })
+    ),
   })
 
   const content = typeof input.input === 'string' ? input.input : JSON.stringify(input.input ?? {})

@@ -1,15 +1,12 @@
 "use client"
 
 import { useEffect, useMemo, useState } from 'react'
-import {
-  Dialog,
-  DialogContent,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
-import { Sparkles, MessageSquare, Search, ShieldCheck, Mic, Command } from 'lucide-react'
+import { Sparkles, MessageSquare, Search, ShieldCheck, Mic, Command, BookOpen } from 'lucide-react'
 import { useAssistantRuntime } from '@/lib/assistant/runtime-context'
 import { ChatPanel } from './ChatPanel'
 import { AssistantResearchTool } from './tools/AssistantResearchTool'
@@ -22,6 +19,7 @@ const TAB_CONFIG = [
   { id: 'research', label: 'Research', description: 'Generate concise research briefs.', icon: Search },
   { id: 'verify', label: 'Verify', description: 'Fact-check statements with cited evidence.', icon: ShieldCheck },
   { id: 'capture', label: 'Capture', description: 'Transcribe meetings into drafts.', icon: Mic },
+  { id: 'guide', label: 'Guide', description: 'How to use + examples.', icon: BookOpen },
 ] as const
 
 type TabId = (typeof TAB_CONFIG)[number]['id']
@@ -108,6 +106,7 @@ export function AssistantDock() {
       </Button>
 
       <DialogContent className="h-[80vh] w-[95vw] max-w-5xl overflow-hidden border-none p-0 sm:rounded-2xl">
+        <DialogTitle className="sr-only">Knowledge Assistant</DialogTitle>
         <div className="flex h-full flex-col bg-background">
           <header className="flex items-start justify-between gap-4 border-b px-6 py-4">
             <div>
@@ -174,6 +173,72 @@ export function AssistantDock() {
                   <TabsContent value="capture" className="flex h-full flex-1 flex-col overflow-hidden">
                     <AssistantCaptureTool />
                   </TabsContent>
+
+                  <TabsContent value="guide" className="flex h-full flex-1 flex-col overflow-hidden">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="rounded-lg border bg-muted/20 p-4">
+                        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+                          <BookOpen className="h-4 w-4" /> What you can do
+                        </div>
+                        <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                          <li>Search documents, collections, templates, and tags</li>
+                          <li>Create, update, move, or delete documents (with confirmation)</li>
+                          <li>Apply templates to create new drafts</li>
+                          <li>Publish and share templates with your team</li>
+                        </ul>
+                      </div>
+                      <div className="rounded-lg border bg-muted/10 p-4">
+                        <div className="mb-2 text-sm font-semibold text-foreground">Clickable examples</div>
+                        <div className="grid grid-cols-1 gap-2">
+                          <ExampleButton
+                            label="Find onboarding docs tagged policy"
+                            onClick={() => {
+                              setActiveTab('chat')
+                              window.dispatchEvent(new CustomEvent('assistant:chat', { detail: { prompt: 'Search documents tagged policy about onboarding, show 5' } }))
+                            }}
+                          />
+                          <ExampleButton
+                            label="List recent documents"
+                            onClick={() => {
+                              setActiveTab('chat')
+                              window.dispatchEvent(new CustomEvent('assistant:chat', { detail: { prompt: 'List recent documents' } }))
+                            }}
+                          />
+                          <ExampleButton
+                            label="Apply Meeting Notes template from my selection"
+                            onClick={() => {
+                              setActiveTab('chat')
+                              const selection = typeof window !== 'undefined' ? window.getSelection()?.toString() || undefined : undefined
+                              window.dispatchEvent(
+                                new CustomEvent('assistant:chat', {
+                                  detail: {
+                                    prompt:
+                                      'Use apply_template_from_context for template "meeting-notes-v1" with title "Weekly Sync Notes". Propose change and ask to proceed.',
+                                    context: selection ? { selectionText: selection } : undefined,
+                                  },
+                                })
+                              )
+                            }}
+                          />
+                          <ExampleButton
+                            label="Publish a template"
+                            onClick={() => {
+                              setActiveTab('chat')
+                              window.dispatchEvent(
+                                new CustomEvent('assistant:chat', {
+                                  detail: {
+                                    prompt:
+                                      'Publish template tpl123 as PUBLIC titled "Incident Postmortem" with tags incident, rca. Summarize and ask to proceed.',
+                                  },
+                                })
+                              )
+                            }}
+                          />
+                        </div>
+                        <p className="mt-3 text-xs text-muted-foreground">Examples open in Ask tab and run immediately.</p>
+                      </div>
+                    </div>
+                  </TabsContent>
                 </div>
               </Tabs>
             </div>
@@ -227,3 +292,15 @@ export function AssistantDock() {
 }
 
 export default AssistantDock
+
+function ExampleButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full rounded border bg-background px-3 py-2 text-left text-sm hover:bg-muted/40"
+    >
+      {label}
+    </button>
+  )
+}

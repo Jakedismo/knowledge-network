@@ -4,6 +4,8 @@ import { ApolloClientProvider } from '@/components/providers/ApolloClientProvide
 import { AssistantRuntimeProvider } from '@/lib/assistant/runtime-context'
 import { MobileBottomNav } from '@/components/mobile/MobileBottomNav'
 import { InstallPrompt } from '@/components/pwa/InstallPrompt'
+import { AuthGate } from '@/components/auth/AuthGate'
+import { ThemeProvider } from '@/lib/theme-provider'
 
 export const metadata: Metadata = {
   title: {
@@ -72,17 +74,21 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
-        <ApolloClientProvider>
-          <AssistantRuntimeProvider>
-            <div className="relative flex min-h-screen flex-col pb-16 md:pb-0">
-              <div className="flex-1">
-                {children}
+        <ThemeProvider defaultTheme="system" enableSystem disableTransitionOnChange>
+          <ApolloClientProvider>
+            <AssistantRuntimeProvider>
+              <div className="relative flex min-h-screen flex-col pb-16 md:pb-0">
+                <div className="flex-1">
+                  <AuthGate>
+                    {children}
+                  </AuthGate>
+                </div>
+                <MobileBottomNav />
+                <InstallPrompt variant="toast" autoShow={true} showDelay={30000} />
               </div>
-              <MobileBottomNav />
-              <InstallPrompt variant="toast" autoShow={true} showDelay={30000} />
-            </div>
-          </AssistantRuntimeProvider>
-        </ApolloClientProvider>
+            </AssistantRuntimeProvider>
+          </ApolloClientProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

@@ -1,6 +1,7 @@
 "use client"
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAssistantRuntime } from '@/lib/assistant/runtime-context'
+import Link from 'next/link'
 import type { AssistantContext, ChatMessage } from '@/lib/assistant/types'
 
 interface ChatPanelProps {
@@ -9,20 +10,23 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
-  const { provider, context: baseContext } = useAssistantRuntime()
+  const { provider, context: baseContext, mergeContext: mergeGlobalContext } = useAssistantRuntime()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const formRef = useRef<HTMLFormElement>(null)
   const streaming = process.env.NEXT_PUBLIC_ASSISTANT_STREAM === 'true'
+  const [speakReplies, setSpeakReplies] = useState(false)
 
-  const send = useCallback(async () => {
+  const send = useCallback(async (overridePrompt?: string) => {
+    const effective = (overridePrompt ?? input).trim()
+    if (!effective) return
     if (streaming) {
       const controller = new AbortController()
       const now = new Date().toISOString()
       // Optimistically append user message and empty assistant bubble
       setMessages((prev) => [
         ...prev,
-        { id: `u:${now}`, role: 'user', content: input, createdAt: now },
+        { id: `u:${now}`, role: 'user', content: effective, createdAt: now },
         { id: `a:${now}`, role: 'assistant', content: '', createdAt: now },
       ])
       const context = mergeContext(baseContext, { documentId, selectionText })
@@ -35,7 +39,7 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
         headers: { 'Content-Type': 'application/json', ...(getAuthHeader()) },
         body: JSON.stringify({
           capability: 'chat',
-          input: { question: input, context, history },
+          input: { question: effective, context, history },
           stream: true,
         }),
         signal: controller.signal,
@@ -108,14 +112,45 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
       role: m.role === 'assistant' ? 'assistant' : 'user',
       content: m.content,
     }))
-    const res = await provider.chat({ input, context, history })
+    const res = await provider.chat({ input: effective, context, history })
     const normalized = normalizeAssistantMessages(res.messages)
-    setMessages((prev) => [...prev, ...normalized])
+    setMessages((prev) => {
+      const next = [...prev, ...normalized]
+      if (speakReplies) speakLatestAssistant(next)
+      return next
+    })
     setInput('')
   }, [input, provider, baseContext, documentId, selectionText, streaming, messages])
 
+  // Listen for external chat triggers from the dock examples
+  useEffect(() => {
+    const handler = (ev: Event) => {
+      const ce = ev as CustomEvent<{ prompt?: string; context?: Partial<AssistantContext> }>
+      const prompt = ce.detail?.prompt?.trim()
+      const ctx = ce.detail?.context
+      if (ctx && Object.keys(ctx).length) mergeGlobalContext(ctx)
+      if (prompt) {
+        setInput(prompt)
+        void send(prompt)
+      }
+    }
+    window.addEventListener('assistant:chat', handler as EventListener)
+    return () => window.removeEventListener('assistant:chat', handler as EventListener)
+  }, [mergeGlobalContext, send])
+
   return (
     <div className="flex h-full w-full flex-col rounded-lg border bg-background">
+      <div className="flex items-center justify-end gap-2 border-b p-2 text-xs text-muted-foreground">
+        <label className="inline-flex cursor-pointer items-center gap-1">
+          <input
+            type="checkbox"
+            className="h-3 w-3"
+            checked={speakReplies}
+            onChange={(e) => setSpeakReplies(e.target.checked)}
+          />
+          Speak replies
+        </label>
+      </div>
       <div className="flex-1 overflow-auto p-3 space-y-3" aria-live="polite">
         {messages.length === 0 ? (
           <p className="text-sm text-muted-foreground">Ask a question about your document or workspace…</p>
@@ -124,7 +159,11 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
             <div key={m.id} className={m.role === 'user' ? 'text-right' : 'text-left'}>
               {m.role === 'assistant' && detectToolList(m.content) ? (
                 <div className="inline-block max-w-[85%] rounded px-3 py-2 text-sm bg-muted text-foreground">
-                  <ToolListRenderer items={parseToolList(m.content)!} />
+                  {useTemplateRenderer(parseToolList(m.content)!) ? (
+                    <TemplateGridRenderer items={parseToolList(m.content)!} />
+                  ) : (
+                    <ToolListRenderer items={parseToolList(m.content)!} />
+                  )}
                 </div>
               ) : (
                 <div
@@ -312,7 +351,7 @@ function detectToolList(text: string): boolean {
   return false
 }
 
-function parseToolList(text: string): Array<{ id?: string; title?: string; snippet?: string; path?: string; url?: string }> | null {
+function parseToolList(text: string): Array<{ id?: string; title?: string; snippet?: string; path?: string; url?: string; kind?: string; tags?: string[]; categories?: string[] }> | null {
   const parsed = safeParseJson(text)
   if (!parsed) return null
   const arr = Array.isArray(parsed) ? parsed : parsed.items
@@ -344,12 +383,160 @@ function ToolListRenderer({ items }: { items: Array<{ id?: string; title?: strin
               <a className="underline" href={it.url} target="_blank" rel="noreferrer">
                 {it.title ?? it.id ?? 'Item'}
               </a>
+            ) : it.path ? (
+              <Link className="underline" href={it.path} prefetch>
+                {it.title ?? it.id ?? 'Item'}
+              </Link>
+            ) : it.id ? (
+              <Link className="underline" href={`/knowledge/${it.id}`} prefetch>
+                {it.title ?? it.id}
+              </Link>
             ) : (
-              <span>{it.title ?? it.id ?? 'Item'}</span>
+              <span>{it.title ?? 'Item'}</span>
             )}
           </div>
+          {it.kind === 'template' ? (
+            <div className="mt-0.5 inline-flex items-center gap-1 rounded bg-purple-100 px-1.5 py-0.5 text-[10px] text-purple-800">Template</div>
+          ) : null}
           {it.path ? <div className="text-xs text-muted-foreground">{it.path}</div> : null}
           {it.snippet ? <div className="mt-1 text-sm">{it.snippet}</div> : null}
+          {(it as any).tags && Array.isArray((it as any).tags) && (it as any).tags.length ? (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {(it as any).tags.map((t: string) => (
+                <button
+                  key={t}
+                  type="button"
+                  className="rounded border bg-background px-1.5 py-0.5 text-[11px] hover:bg-muted/40"
+                  onClick={() =>
+                    window.dispatchEvent(
+                      new CustomEvent('assistant:chat', {
+                        detail: { prompt: `Search documents tagged ${JSON.stringify(t)} show 10` },
+                      })
+                    )
+                  }
+                >
+                  #{t}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function useTemplateRenderer(items: Array<{ kind?: string }>): boolean {
+  if (!items || items.length === 0) return false
+  const sample = items.slice(0, Math.min(5, items.length))
+  return sample.every((it) => (it as any).kind === 'template')
+}
+
+function TemplateGridRenderer({ items }: { items: Array<{ id?: string; title?: string; path?: string; tags?: string[]; categories?: string[] }> }) {
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {items.map((it, i) => (
+        <div key={it.id ?? i} className="rounded border bg-background p-3">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <div className="font-medium">
+              {it?.path ? (
+                <Link className="underline" href={it.path} prefetch>
+                  {it.title ?? it.id ?? 'Template'}
+                </Link>
+              ) : (
+                <span>{it.title ?? it.id ?? 'Template'}</span>
+              )}
+            </div>
+            <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] text-purple-800">Template</span>
+          </div>
+          {(it.categories && it.categories.length) || (it.tags && it.tags.length) ? (
+            <div className="mt-2 flex flex-wrap items-center gap-1">
+              {(it.categories ?? []).map((c) => (
+                <button
+                  key={`c-${c}`}
+                  type="button"
+                  className="rounded border bg-background px-1.5 py-0.5 text-[11px] hover:bg-muted/40"
+                  onClick={() =>
+                    window.dispatchEvent(
+                      new CustomEvent('assistant:chat', {
+                        detail: { prompt: `Search templates q ${JSON.stringify(c)}` },
+                      })
+                    )
+                  }
+                >
+                  {c}
+                </button>
+              ))}
+              {(it.tags ?? []).map((t) => (
+                <button
+                  key={`t-${t}`}
+                  type="button"
+                  className="rounded border bg-background px-1.5 py-0.5 text-[11px] hover:bg-muted/40"
+                  onClick={() =>
+                    window.dispatchEvent(
+                      new CustomEvent('assistant:chat', {
+                        detail: { prompt: `Search templates q ${JSON.stringify(t)}` },
+                      })
+                    )
+                  }
+                >
+                  #{t}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="rounded border bg-background px-2 py-1 text-xs hover:bg-muted/50"
+              onClick={() =>
+                window.dispatchEvent(
+                  new CustomEvent('assistant:chat', {
+                    detail: {
+                      prompt: `Use apply_template_from_context for template "${it.id}" with title "New from ${it.title ?? it.id}". Propose change and ask to proceed.`,
+                    },
+                  })
+                )
+              }
+            >
+              Apply
+            </button>
+            <button
+              type="button"
+              className="rounded border bg-background px-2 py-1 text-xs hover:bg-muted/50"
+              onClick={() =>
+                window.dispatchEvent(
+                  new CustomEvent('assistant:chat', {
+                    detail: {
+                      prompt: `Publish template ${it.id} as PUBLIC titled ${JSON.stringify(it.title ?? 'Template')} with tags ${(it.tags ?? []).slice(0, 3).join(', ')}. Summarize and ask to proceed.`,
+                  },
+                  })
+                )
+              }
+            >
+              Publish
+            </button>
+            <button
+              type="button"
+              className="rounded border bg-background px-2 py-1 text-xs hover:bg-muted/50"
+              onClick={() =>
+                window.dispatchEvent(
+                  new CustomEvent('assistant:chat', {
+                    detail: {
+                      prompt: `Share template ${it.id} with role engineering-editor permission template:use. Summarize and ask to proceed.`,
+                    },
+                  })
+                )
+              }
+            >
+              Share
+            </button>
+            {it?.path ? (
+              <Link href={it.path} prefetch className="rounded border bg-background px-2 py-1 text-xs hover:bg-muted/50">
+                Open
+              </Link>
+            ) : null}
+          </div>
         </div>
       ))}
     </div>
@@ -363,4 +550,23 @@ function ConfirmBar({ onProceed, onCancel }: { onProceed: () => void | Promise<v
       <button className="rounded bg-primary px-3 py-2 text-sm text-primary-foreground" onClick={() => void onProceed()} aria-label="Proceed with proposed change">Proceed</button>
     </div>
   )
+}
+
+function speakLatestAssistant(all: ChatMessage[]) {
+  try {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+    const last = [...all].reverse().find((m) => m.role === 'assistant')
+    if (!last?.content) return
+    window.speechSynthesis.cancel()
+    const utter = new SpeechSynthesisUtterance(stripMarkdown(last.content).slice(0, 1000))
+    utter.rate = 1
+    utter.pitch = 1
+    window.speechSynthesis.speak(utter)
+  } catch {
+    // ignore
+  }
+}
+
+function stripMarkdown(s: string): string {
+  return s.replace(/`{1,3}[\s\S]*?`{1,3}/g, '').replace(/[*_#>\[\]()~-]/g, '')
 }
