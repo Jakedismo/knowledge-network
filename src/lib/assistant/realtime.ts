@@ -552,13 +552,16 @@ export class RealtimeClient {
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
             input_audio_transcription: {
-              model: 'whisper-1'
+              model: 'whisper-1',
+              language: null,  // Auto-detect language
+              prompt: null     // No specific transcription prompt
             },
             turn_detection: {
               type: 'server_vad',
               threshold: 0.5,
               prefix_padding_ms: 300,
-              silence_duration_ms: 500
+              silence_duration_ms: 500,
+              create_response: true  // Automatically create response when speech stops
             },
             tools: [],
             tool_choice: 'auto',
@@ -644,18 +647,52 @@ export class RealtimeClient {
 
             case 'conversation.item.input_audio_transcription.completed':
               // User's speech was transcribed
-              console.log('[RealtimeClient] User transcript:', data.transcript)
-              this.events.onAny?.('user_transcript', data.transcript)
+              console.log('[RealtimeClient] User transcript completed:', data)
+              if (data.transcript) {
+                this.events.onAny?.('user_transcript', data.transcript)
+              }
+              break
+
+            case 'conversation.item.input_audio_transcription.failed':
+              // Transcription failed
+              console.error('[RealtimeClient] Transcription failed:', data)
               break
 
             case 'conversation.item.created':
               // A conversation item was created (could be user or assistant)
               console.log('[RealtimeClient] Item created:', data.item)
               if (data.item?.role === 'user' && data.item?.type === 'message') {
-                // User message was created from their speech
-                const content = data.item?.content?.[0]?.transcript || data.item?.content?.[0]?.text
-                if (content) {
-                  this.events.onAny?.('user_transcript', content)
+                // Check all content items for transcripts
+                const content = data.item?.content || []
+                for (const item of content) {
+                  if (item.type === 'input_audio' && item.transcript) {
+                    console.log('[RealtimeClient] Found user audio transcript:', item.transcript)
+                    this.events.onAny?.('user_transcript', item.transcript)
+                    break
+                  } else if (item.type === 'input_text' && item.text) {
+                    console.log('[RealtimeClient] Found user text:', item.text)
+                    this.events.onAny?.('user_transcript', item.text)
+                    break
+                  }
+                }
+              }
+              break
+
+            case 'response.output_item.added':
+              // Response item was added
+              console.log('[RealtimeClient] Response item added:', data)
+              break
+
+            case 'response.output_item.done':
+              // Response item completed
+              console.log('[RealtimeClient] Response item done:', data)
+              if (data.item?.content) {
+                for (const content of data.item.content) {
+                  if (content.type === 'text' && content.text) {
+                    this.events.onAny?.('response.text.done', content.text)
+                  } else if (content.type === 'audio' && content.transcript) {
+                    this.events.onAny?.('response.audio.transcript.done', content.transcript)
+                  }
                 }
               }
               break
