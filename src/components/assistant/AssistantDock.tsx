@@ -105,7 +105,7 @@ export function AssistantDock() {
         </span>
       </Button>
 
-      <DialogContent className="h-[80vh] w-[95vw] max-w-5xl overflow-hidden border-none p-0 sm:rounded-2xl">
+      <DialogContent className="h-[90vh] w-[95vw] max-w-6xl overflow-hidden border-none p-0 sm:rounded-2xl">
         <DialogTitle className="sr-only">Knowledge Assistant</DialogTitle>
         <div className="flex h-full flex-col bg-background">
           <header className="flex items-start justify-between gap-4 border-b px-6 py-4">
@@ -140,9 +140,9 @@ export function AssistantDock() {
             </div>
           </header>
 
-          <div className="flex flex-1 flex-col gap-4 p-6 md:flex-row">
-            <div className="flex h-full flex-1 flex-col">
-              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabId)} className="flex h-full flex-col">
+          <div className="flex flex-1 min-h-0 flex-col gap-4 p-6 md:flex-row">
+            <div className="flex h-full min-h-0 flex-1 flex-col">
+              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabId)} className="flex h-full min-h-0 flex-col">
                 <TabsList className="flex flex-wrap gap-2 bg-transparent p-0">
                   {TAB_CONFIG.map((tab) => (
                     <TabsTrigger
@@ -157,12 +157,12 @@ export function AssistantDock() {
                 </TabsList>
                 <Separator className="my-4" />
 
-                <div className="flex flex-1 flex-col overflow-hidden">
-                  <TabsContent value="chat" className="flex h-full flex-1 flex-col overflow-hidden">
+                <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+                  <TabsContent value="chat" className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
                     <div className="mb-3 text-sm text-muted-foreground">
                       Ask the assistant anything about your workspace, documents, or upcoming work.
                     </div>
-                    <div className="flex-1 overflow-hidden">
+                    <div className="flex-1 min-h-0 overflow-hidden">
                       <ChatPanel />
                     </div>
                   </TabsContent>

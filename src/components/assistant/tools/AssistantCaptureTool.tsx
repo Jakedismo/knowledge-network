@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Mic, Upload, AudioLines, Sparkles, Keyboard } from 'lucide-react'
+import { RealtimeClient } from '@/lib/assistant/realtime'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
@@ -16,6 +17,7 @@ export function AssistantCaptureTool() {
   const [autoDraft, setAutoDraft] = useState(true)
   const [draftBanner, setDraftBanner] = useState<string | null>(null)
   const [recording, setRecording] = useState(false)
+  const realtimeRef = useRef<RealtimeClient | null>(null)
   const [pttEnabled, setPttEnabled] = useState(false)
   const [pttKey, setPttKey] = useState<'v' | ' ' | 'm'>('v')
   const [ariaMsg, setAriaMsg] = useState('')
@@ -59,12 +61,15 @@ export function AssistantCaptureTool() {
       } catch (error) {
         // Fallback: call REST directly with auth/dev headers
         try {
-          const view = bytes
-          const buffer = view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength)
-          const blob = new Blob([buffer], { type: 'application/octet-stream' })
           const fd = new FormData()
-          fd.set('file', new File([blob], fileName))
-          const res = await fetch('/api/ai/transcribe', { method: 'POST', headers: getAuthHeader(), body: fd })
+          const safeName = fileName || 'capture.webm'
+          const fileObj = new File([bytes], safeName, { type: 'audio/webm' })
+          fd.append('file', fileObj)
+          const res = await fetch('/api/ai/transcribe', {
+            method: 'POST',
+            headers: getAuthHeader(),
+            body: fd,
+          })
           if (!res.ok) throw new Error(await res.text())
           const data = (await res.json()) as TranscriptionResult
           handleResult(data)
@@ -88,30 +93,54 @@ export function AssistantCaptureTool() {
 
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream)
-      chunksRef.current = []
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunksRef.current.push(event.data)
-      }
-      recorder.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
-        const bytes = new Uint8Array(await blob.arrayBuffer())
-        void transcribeBytes('live-capture.webm', bytes)
-        stream.getTracks().forEach((track) => track.stop())
-        setRecording(false)
-      }
-      recorder.start()
-      mediaRecorderRef.current = recorder
+      // Prefer Realtime streaming capture; fall back to local recording
+      const rtc = new RealtimeClient({
+        onFinal: (t) => {
+          const transcript = String(t || '')
+          void transcribeBytes('realtime-capture.txt', new TextEncoder().encode(transcript))
+        },
+        onError: () => {},
+      })
+      await rtc.connect()
+      await rtc.startMicrophone()
+      realtimeRef.current = rtc
       setRecording(true)
       setAriaMsg('Recording started')
-    } catch (error) {
-      console.error('Microphone permission denied', error)
+    } catch (e) {
+      // Fallback: local recording then POST to /api/ai/transcribe
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        const recorder = new MediaRecorder(stream)
+        chunksRef.current = []
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) chunksRef.current.push(event.data)
+        }
+        recorder.onstop = async () => {
+          const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+          const bytes = new Uint8Array(await blob.arrayBuffer())
+          void transcribeBytes('live-capture.webm', bytes)
+          stream.getTracks().forEach((track) => track.stop())
+          setRecording(false)
+        }
+        recorder.start()
+        mediaRecorderRef.current = recorder
+        setRecording(true)
+        setAriaMsg('Recording started')
+      } catch (error) {
+        console.error('Microphone permission denied', error)
+      }
     }
   }, [transcribeBytes])
 
   const stopRecording = useCallback(() => {
     if (recording) setAriaMsg('Recording stopped')
+    if (realtimeRef.current) {
+      void realtimeRef.current.stopMicrophone()
+      void realtimeRef.current.disconnect()
+      realtimeRef.current = null
+      setRecording(false)
+      return
+    }
     mediaRecorderRef.current?.stop()
   }, [recording])
 

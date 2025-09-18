@@ -4,6 +4,7 @@ import { useAssistantRuntime } from '@/lib/assistant/runtime-context'
 import Link from 'next/link'
 import type { AssistantContext, ChatMessage } from '@/lib/assistant/types'
 import { Mic } from 'lucide-react'
+import { RealtimeClient } from '@/lib/assistant/realtime'
 
 interface ChatPanelProps {
   documentId?: string
@@ -22,6 +23,73 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
   const [dictating, setDictating] = useState(false)
   const [dictationMsg, setDictationMsg] = useState('')
   const recRef = useRef<any>(null)
+  const mediaRecRef = useRef<MediaRecorder | null>(null)
+  const mediaChunksRef = useRef<BlobPart[]>([])
+  const realtimeRef = useRef<RealtimeClient | null>(null)
+
+  const rtcChatRef = useRef<RealtimeClient | null>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const [showDiag, setShowDiag] = useState(false)
+  const [realtimeDiag, setRealtimeDiag] = useState<{ lastError?: string; model?: string; lastAt?: string } | null>(null)
+  const [eventLog, setEventLog] = useState<Array<{ ts: string; name: string; data: string }>>([])
+  const [copied, setCopied] = useState(false)
+  const [sdkDiag, setSdkDiag] = useState<{
+    module?: string
+    exports?: string[]
+    ctor?: string | null
+    connectOK?: boolean | null
+    error?: string
+  } | null>(null)
+
+  async function runRealtimeSdkCheck() {
+    try {
+      // Get ephemeral token first
+      const res = await fetch('/api/ai/realtime/session', { method: 'POST' })
+      if (!res.ok) throw new Error(await res.text())
+      const { clientSecret, model } = await res.json()
+      // Try imports
+      let mod: any = null
+      let moduleName = ''
+      try {
+        mod = await import('@openai/agents-realtime')
+        moduleName = '@openai/agents-realtime'
+      } catch {
+        try {
+          mod = await import('@openai/agents')
+          moduleName = '@openai/agents'
+        } catch {}
+      }
+      if (!mod) {
+        setSdkDiag({ module: 'unavailable', error: 'SDK not found' })
+        return
+      }
+      const keys = Object.keys(mod)
+      const ctors = ['RealtimeSession', 'OpenAIRealtimeWebRTC', 'OpenAIRealtimeSession']
+      const found = ctors.find((k) => (mod as any)[k]) || null
+      let connectOK: boolean | null = null
+      if (found === 'RealtimeSession' || found === 'OpenAIRealtimeSession') {
+        try {
+          const Session = (mod as any)[found]
+          const session = new Session({ model })
+          try {
+            await session.connect({ apiKey: clientSecret })
+          } catch {
+            await session.connect({ clientSecret })
+          }
+          connectOK = true
+          try { await session.disconnect?.() } catch {}
+        } catch (e) {
+          connectOK = false
+        }
+      } else if (found === 'OpenAIRealtimeWebRTC') {
+        // Constructor present; actual attach/transport happens in our code paths
+        connectOK = null
+      }
+      setSdkDiag({ module: moduleName, exports: keys.slice(0, 50), ctor: found, connectOK })
+    } catch (e: any) {
+      setSdkDiag({ error: e?.message || String(e) })
+    }
+  }
 
   const send = useCallback(async (overridePrompt?: string) => {
     const effective = (overridePrompt ?? input).trim()
@@ -35,82 +103,78 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
         { id: `u:${now}`, role: 'user', content: effective, createdAt: now },
         { id: `a:${now}`, role: 'assistant', content: '', createdAt: now },
       ])
+      // Try Realtime text streaming
+      try {
+        let rtc = rtcChatRef.current
+        if (!rtc) {
+          rtc = new RealtimeClient()
+          rtcChatRef.current = rtc
+          try {
+            const info = await rtc.connect()
+            setRealtimeDiag((prev) => ({ ...(prev || {}), model: info?.model, lastAt: new Date().toISOString() }))
+          } catch (e: any) {
+            setRealtimeDiag((prev) => ({ ...(prev || {}), lastError: e?.message || String(e), lastAt: new Date().toISOString() }))
+            throw e
+          }
+          if (audioRef.current) rtc.attachAudio(audioRef.current)
+        }
+        // Route partial and final to the last assistant bubble
+        rtc.setHandlers({
+          onPartial: (delta) => {
+            setMessages((prev) => {
+              const next = [...prev]
+              const last = next[next.length - 1]
+              if (last?.role === 'assistant') last.content += String(delta || '')
+              return next
+            })
+          },
+          onFinal: (text) => {
+            setMessages((prev) => {
+              const next = [...prev]
+              const last = next[next.length - 1]
+              if (last?.role === 'assistant') last.content = formatAssistantContent(String(text || ''))
+              return next
+            })
+          },
+          onError: (e) => setRealtimeDiag((prev) => ({ ...(prev || {}), lastError: String((e as any)?.message || e), lastAt: new Date().toISOString() })),
+          onAny: (name, data) => setEventLog((prev) => {
+            const entry = { ts: new Date().toISOString(), name: String(name), data: safeDataPreview(data) }
+            const next = [...prev, entry]
+            return next.slice(-50)
+          }),
+        })
+        await rtc.sendText(effective)
+        setInput('')
+        return
+      } catch {
+        // Fall back to existing non-stream execution
+      }
+
+      // Fallback (non-stream): existing API
       const context = mergeContext(baseContext, { documentId, selectionText })
       const history = messages.map((m): { role: 'user' | 'assistant'; content: string } => ({
         role: m.role === 'assistant' ? 'assistant' : 'user',
         content: m.content,
       }))
-      const resp = await fetch('/api/ai/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(getAuthHeader()) },
-        body: JSON.stringify({
-          capability: 'chat',
-          input: { question: effective, context, history },
-          stream: true,
-        }),
-        signal: controller.signal,
-      })
-      if (!resp.ok) { setInput(''); return }
-
-      // Fallback: if server couldn't stream (e.g., Agents SDK path), it will return JSON
-      const ctype = resp.headers.get('content-type') || ''
-      if (!ctype.includes('text/event-stream')) {
-        try {
+      try {
+        const resp = await fetch('/api/ai/execute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(getAuthHeader()) },
+          body: JSON.stringify({ capability: 'chat', input: { question: effective, context, history } }),
+          signal: controller.signal,
+        })
+        if (resp.ok) {
           const payload = await resp.json()
           if (payload?.type === 'chat' && Array.isArray(payload?.data?.messages)) {
             setMessages((prev) => {
-              // Remove the optimistic assistant bubble before appending real messages
               const trimmed = prev.slice(0, -1)
-              return [...trimmed, ...payload.data.messages]
+              return [...trimmed, ...normalizeAssistantMessages(payload.data.messages)]
             })
           }
-        } catch {
-          // Ignore JSON parse errors; leave the optimistic assistant empty
         }
+      } finally {
         setInput('')
-        return
       }
-      const reader = resp.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let sawAnyText = false
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const parts = buffer.split('\n\n')
-        buffer = parts.pop() || ''
-        for (const part of parts) {
-          const lines = part.split('\n')
-          const event = lines.find((l) => l.startsWith('event: '))?.slice(7)
-          const dataLine = lines.find((l) => l.startsWith('data: '))?.slice(6)
-          if (event === 'text' && dataLine) {
-            setMessages((prev) => {
-              const next = [...prev]
-              const last = next[next.length - 1]
-              if (last?.role === 'assistant') {
-                const delta = safeParseDataLine(dataLine)
-                last.content += delta
-                sawAnyText = true
-              }
-              return next
-            })
-          }
-        }
-      }
-      // Post-process last assistant message for JSON pretty formatting and de-duplication
-      if (sawAnyText) {
-        setMessages((prev) => {
-          if (prev.length === 0) return prev
-          const next = [...prev]
-          const last = next[next.length - 1]
-          if (last?.role === 'assistant') {
-            last.content = formatAssistantContent(last.content)
-          }
-          return next
-        })
-      }
-      setInput('')
       return
     }
     const context = mergeContext(baseContext, { documentId, selectionText })
@@ -127,6 +191,29 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
     })
     setInput('')
   }, [input, provider, baseContext, documentId, selectionText, streaming, messages])
+
+  // Detect tool call pattern in final text and execute via local tools API
+  useEffect(() => {
+    const last = messages[messages.length - 1]
+    if (!last || last.role !== 'assistant' || !last.content) return
+    const maybe = detectToolCall(last.content)
+    if (!maybe) return
+    ;(async () => {
+      try {
+        const res = await fetch('/api/ai/tools/exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(getAuthHeader()) },
+          body: JSON.stringify(maybe),
+        })
+        const data = await res.json()
+        const now = new Date().toISOString()
+        const content = data?.result
+          ? JSON.stringify({ tool_result: { name: maybe.name, result: data.result } })
+          : JSON.stringify({ tool_error: { name: maybe.name, error: data?.error || String(res.status) } })
+        setMessages((prev) => [...prev, { id: `a:${now}`, role: 'assistant', content, createdAt: now }])
+      } catch {}
+    })()
+  }, [messages])
 
   // Listen for external chat triggers from the dock examples
   useEffect(() => {
@@ -177,8 +264,69 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
     }
   }, [pttEnabled, pttKey, dictating])
 
-  function startDictation() {
+  async function startDictation() {
     try {
+      // Prefer Realtime client: live mic -> GPT Realtime -> transcript
+      if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+        try {
+          const rtc = new RealtimeClient({
+            onPartial: (t) => setInput(String(t || '')),
+            onFinal: (t) => {
+              const s = String(t || '')
+              setInput(s)
+              if (s.trim()) void send(s)
+            },
+            onError: (e) => setRealtimeDiag({ lastError: String((e as any)?.message || e), lastAt: new Date().toISOString(), model: realtimeDiag?.model }),
+            onAny: (name, data) => setEventLog((prev) => {
+              const entry = { ts: new Date().toISOString(), name: String(name), data: safeDataPreview(data) }
+              const next = [...prev, entry]
+              return next.slice(-50)
+            }),
+          })
+          realtimeRef.current = rtc
+          try {
+            const info = await rtc.connect()
+            setRealtimeDiag((prev) => ({ ...(prev || {}), model: info?.model, lastAt: new Date().toISOString() }))
+          } catch (e: any) {
+            setRealtimeDiag((prev) => ({ ...(prev || {}), lastError: e?.message || String(e), lastAt: new Date().toISOString() }))
+            throw e
+          }
+          await rtc.startMicrophone()
+          setDictating(true)
+          setDictationMsg('Listening… release key to send')
+          return
+        } catch {
+          // fall through to REST chunk path
+        }
+        // REST fallback: short recording then POST to /api/ai/transcribe
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        const rec = new MediaRecorder(stream)
+        mediaChunksRef.current = []
+        rec.ondataavailable = (e) => { if (e.data.size > 0) mediaChunksRef.current.push(e.data) }
+        rec.onstart = () => { setDictating(true); setDictationMsg('Listening… release key to send') }
+        rec.onstop = async () => {
+          const blob = new Blob(mediaChunksRef.current, { type: rec.mimeType || 'audio/webm' })
+          const bytes = new Uint8Array(await blob.arrayBuffer())
+          try {
+            const fd = new FormData()
+            fd.append('file', new File([bytes], 'ask-dictation.webm', { type: 'audio/webm' }))
+            const res = await fetch('/api/ai/transcribe', { method: 'POST', headers: getAuthHeader(), body: fd })
+            if (res.ok) {
+              const data = await res.json()
+              const t = String(data?.transcript ?? '')
+              setInput(t)
+              if (t.trim()) void send(t)
+            }
+          } catch {}
+          stream.getTracks().forEach((t) => t.stop())
+          setDictationMsg('')
+          setDictating(false)
+        }
+        mediaRecRef.current = rec
+        rec.start()
+        return
+      }
+      // Fallback to Web Speech API
       const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
       if (!SR) return
       const rec = new SR()
@@ -216,26 +364,155 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
 
   function stopDictation(sendIt: boolean) {
     try {
-      recRef.current?.stop()
+      if (realtimeRef.current) {
+        void realtimeRef.current.stopMicrophone()
+        void realtimeRef.current.disconnect()
+        realtimeRef.current = null
+      } else if (mediaRecRef.current) {
+        mediaRecRef.current.stop()
+      } else {
+        recRef.current?.stop()
+      }
     } catch {}
     recRef.current = null
     setDictating(false)
     setDictationMsg('')
-    if (sendIt && input.trim()) void send(input)
+    if (!mediaRecRef.current && !realtimeRef.current && sendIt && input.trim()) void send(input)
   }
 
   const listRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    // Auto-scroll to latest on new messages
-    try {
-      const el = listRef.current
-      if (el) el.scrollTop = el.scrollHeight
-    } catch {}
-  }, [messages])
+  const endRef = useRef<HTMLDivElement>(null)
+  const scrollToBottom = useCallback(() => {
+    try { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) } catch {}
+  }, [])
+  useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
 
   return (
-    <div className="flex h-full w-full flex-col rounded-lg border bg-background">
-      <div className="flex items-center justify-end gap-2 border-b p-2 text-xs text-muted-foreground">
+    <div className="flex h-full min-h-0 w-full flex-col rounded-lg border bg-background">
+      <div className="flex items-center justify-between gap-2 border-b p-2 text-xs text-muted-foreground">
+        {/* Call-style HUD */}
+        <div className="flex items-center gap-3">
+          <span className={`inline-flex items-center gap-1 ${rtcChatRef.current ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+            <span className={`h-2 w-2 rounded-full ${rtcChatRef.current ? 'bg-emerald-500' : 'bg-muted-foreground'}`} aria-hidden />
+            {rtcChatRef.current ? 'Connected' : 'Idle'}
+          </span>
+          {dictating ? <span className="text-foreground">Live mic</span> : null}
+          <button
+            type="button"
+            className="rounded border bg-background px-2 py-1 text-[11px] hover:bg-muted/40"
+            onClick={() => {
+              if (dictating) stopDictation(false)
+              else startDictation()
+            }}
+          >
+            {dictating ? 'Mute' : 'Unmute'}
+          </button>
+          <button
+            type="button"
+            className="rounded border bg-background px-2 py-1 text-[11px] hover:bg-muted/40"
+            onClick={() => {
+              try { rtcChatRef.current?.disconnect() } catch {}
+              rtcChatRef.current = null
+              setDictating(false)
+            }}
+          >
+            End
+          </button>
+          <button
+            type="button"
+            className="rounded border bg-background px-2 py-1 text-[11px] hover:bg-muted/40"
+            onClick={() => setShowDiag((v) => !v)}
+          >
+            Details
+          </button>
+          {showDiag ? (
+            <div className="z-10 max-w-xs rounded border bg-background p-2 text-[11px] text-foreground shadow">
+              <div>Model: {realtimeDiag?.model || process.env.NEXT_PUBLIC_REALTIME_MODEL || 'gpt-realtime'}</div>
+              <div>Last: {realtimeDiag?.lastAt || '—'}</div>
+              <div className="text-amber-700">{realtimeDiag?.lastError ? `Error: ${realtimeDiag.lastError}` : ''}</div>
+              <div className="text-muted-foreground">Beta: realtime=v1</div>
+              {!rtcChatRef.current ? (
+                <button
+                  type="button"
+                  className="mt-1 rounded border bg-background px-1.5 py-0.5 text-[10px] hover:bg-muted/40"
+                  onClick={async () => {
+                    try {
+                      const rtc = new RealtimeClient()
+                      rtcChatRef.current = rtc
+                      const info = await rtc.connect()
+                      if (audioRef.current) rtc.attachAudio(audioRef.current)
+                      setRealtimeDiag((prev) => ({ ...(prev || {}), model: info?.model, lastAt: new Date().toISOString() }))
+                    } catch (e: any) {
+                      setRealtimeDiag((prev) => ({ ...(prev || {}), lastError: e?.message || String(e), lastAt: new Date().toISOString() }))
+                    }
+                  }}
+                >
+                  Connect
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="ml-1 mt-1 rounded border bg-background px-1.5 py-0.5 text-[10px] hover:bg-muted/40"
+                onClick={() => runRealtimeSdkCheck()}
+              >
+                Check SDK
+              </button>
+              {sdkDiag ? (
+                <div className="mt-1 space-y-1 rounded border bg-muted/20 p-1">
+                  <div>Module: {sdkDiag.module || '—'}</div>
+                  <div>Ctor: {sdkDiag.ctor || '—'}</div>
+                  <div>Connect test: {sdkDiag.connectOK === true ? 'OK' : sdkDiag.connectOK === false ? 'Failed' : 'n/a'}</div>
+                  {sdkDiag.error ? <div className="text-amber-700">{sdkDiag.error}</div> : null}
+                </div>
+              ) : null}
+              <details className="mt-2">
+                <summary>Event log</summary>
+                <div className="mt-1 flex items-center justify-between">
+                  <span className="text-muted-foreground">Last {eventLog.length} events</span>
+                  <button
+                    type="button"
+                    className="rounded border bg-background px-1.5 py-0.5 text-[10px] hover:bg-muted/40"
+                    onClick={async () => {
+                      const text = eventLog
+                        .map((e) => `[${e.ts}] ${e.name}\n${e.data}`)
+                        .join('\n\n') || 'No events.'
+                      try {
+                        if (navigator?.clipboard?.writeText) await navigator.clipboard.writeText(text)
+                        else {
+                          const ta = document.createElement('textarea')
+                          ta.value = text
+                          document.body.appendChild(ta)
+                          ta.select()
+                          document.execCommand('copy')
+                          document.body.removeChild(ta)
+                        }
+                        setCopied(true)
+                        setTimeout(() => setCopied(false), 1500)
+                      } catch {}
+                    }}
+                  >
+                    {copied ? 'Copied' : 'Copy log'}
+                  </button>
+                </div>
+                <div className="mt-1 max-h-48 overflow-auto rounded border bg-muted/30 p-1">
+                  {eventLog.length === 0 ? (
+                    <div className="p-1 text-muted-foreground">No events</div>
+                  ) : (
+                    eventLog.map((ev, idx) => (
+                      <div key={idx} className="border-b p-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{ev.name}</span>
+                          <span className="text-[10px] text-muted-foreground">{ev.ts}</span>
+                        </div>
+                        <pre className="whitespace-pre-wrap text-[10px] text-muted-foreground">{ev.data}</pre>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </details>
+            </div>
+          ) : null}
+        </div>
         <label className="inline-flex cursor-pointer items-center gap-1">
           <input
             type="checkbox"
@@ -268,7 +545,9 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
         </select>
         {dictating ? <span aria-live="polite">{dictationMsg}</span> : null}
       </div>
-      <div ref={listRef} className="flex-1 overflow-auto p-3 space-y-3" aria-live="polite">
+      {/* hidden audio element for Realtime TTS playback */}
+      <audio ref={audioRef} className="hidden" autoPlay />
+      <div ref={listRef} className="flex-1 min-h-0 overflow-auto p-3 space-y-3" aria-live="polite">
         {messages.length === 0 ? (
           <p className="text-sm text-muted-foreground">Ask a question about your document or workspace…</p>
         ) : (
@@ -282,6 +561,14 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
                     <ToolListRenderer items={parseToolList(m.content)!} />
                   )}
                 </div>
+              ) : m.role === 'assistant' && detectStructuredPayload(m.content) ? (
+                <div className="inline-block max-w-[85%] rounded px-3 py-2 text-sm bg-muted text-foreground">
+                  <StructuredPayloadRenderer data={parseStructuredPayload(m.content)!} />
+                </div>
+              ) : m.role === 'assistant' && detectToolResultPayload(m.content) ? (
+                <div className="inline-block max-w-[85%] rounded px-3 py-2 text-sm bg-muted text-foreground">
+                  <ToolResultRenderer data={parseToolResultPayload(m.content)!} />
+                </div>
               ) : (
                 <div
                   className={`inline-block max-w-[85%] rounded px-3 py-2 text-sm ${
@@ -294,6 +581,7 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
             </div>
           ))
         )}
+        <div ref={endRef} />
       </div>
       {shouldShowConfirm(messages) ? (
         <ConfirmBar
@@ -478,11 +766,11 @@ function detectToolList(text: string): boolean {
   return false
 }
 
-function parseToolList(text: string): Array<{ id?: string; title?: string; snippet?: string; path?: string; url?: string; kind?: string; tags?: string[]; categories?: string[] }> | null {
+function parseToolList(text: string): Array<{ id?: string; title?: string; snippet?: string; path?: string; url?: string; kind?: string; tags?: string[]; categories?: string[] }> {
   const parsed = safeParseJson(text)
-  if (!parsed) return null
+  if (!parsed) return []
   const arr = Array.isArray(parsed) ? parsed : parsed.items
-  if (!Array.isArray(arr)) return null
+  if (!Array.isArray(arr)) return []
   return arr as any
 }
 
@@ -490,6 +778,190 @@ function safeParseJson(text: string): any | null {
   const t = (text || '').trim()
   if (!(t.startsWith('{') || t.startsWith('['))) return null
   try { return JSON.parse(t) } catch { return null }
+}
+
+function detectStructuredPayload(text: string): boolean {
+  const obj = safeParseJson(text)
+  if (!obj || Array.isArray(obj) || typeof obj !== 'object') return false
+  return Boolean(
+    obj.status || obj.message || obj.required_fields || obj.optional_fields || obj.sample_payload || obj.next_steps
+  )
+}
+
+function parseStructuredPayload(text: string): any | null {
+  const obj = safeParseJson(text)
+  if (!obj || Array.isArray(obj) || typeof obj !== 'object') return null
+  const clean = (s: any) => cleanText(String(s ?? ''))
+  return {
+    status: clean(obj.status ?? obj.statusstatus),
+    message: clean(obj.message ?? obj.messagemessage),
+    context: obj.context ?? {},
+    required: normalizeFieldList(obj.required_fields ?? obj.required_fields_fields),
+    optional: normalizeFieldList(obj.optional_fields ?? obj.optional_fields_fields),
+    sample: obj.sample_payload ?? obj.sample_payload_payload ?? null,
+    next: Array.isArray(obj.next_steps ?? obj.next_steps_steps)
+      ? (obj.next_steps ?? obj.next_steps_steps).map((x: any) => clean(x))
+      : [],
+    note: clean(obj.security_note ?? obj.security_note_note),
+  }
+}
+
+function normalizeFieldList(list: any): Array<{ name: string; type?: string; example?: string; note?: string; allowed?: string[] }> {
+  if (!Array.isArray(list)) return []
+  return list
+    .map((item) => {
+      const it = Array.isArray(item) ? item[0] : item
+      const name = it?.name ?? it?.name_name
+      if (!name) return null
+      return {
+        name: cleanText(String(name)),
+        type: it?.type ? String(it.type) : undefined,
+        example: it?.example ? cleanText(String(it.example)) : undefined,
+        note: it?.note ? cleanText(String(it.note)) : undefined,
+        allowed: Array.isArray(it?.allowed_values ?? it?.allowed_values_values)
+          ? (it.allowed_values ?? it.allowed_values_values).map((v: any) => cleanText(String(v)))
+          : undefined,
+      }
+    })
+    .filter(Boolean) as any
+}
+
+function StructuredPayloadRenderer({ data }: { data: any }) {
+  return (
+    <div className="space-y-3">
+      {data.message ? <div className="font-medium text-foreground">{data.message}</div> : null}
+      {data.required && data.required.length ? (
+        <div>
+          <div className="text-xs font-semibold text-foreground">Required fields</div>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {data.required.map((f: any) => (
+              <span key={f.name} className="rounded border bg-background px-1.5 py-0.5 text-[11px]">
+                {f.name}
+                {f.type ? <em className="ml-1 text-muted-foreground">({f.type})</em> : null}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {data.optional && data.optional.length ? (
+        <div>
+          <div className="text-xs font-semibold text-foreground">Optional fields</div>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {data.optional.map((f: any) => (
+              <span key={f.name} className="rounded border bg-background px-1.5 py-0.5 text-[11px]">
+                {f.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {data.sample ? (
+        <div>
+          <div className="text-xs font-semibold text-foreground">Sample payload</div>
+          <pre className="mt-1 max-h-48 overflow-auto rounded border bg-background p-2 text-xs">
+            {JSON.stringify(deDupeJsonStrings(data.sample), null, 2)}
+          </pre>
+        </div>
+      ) : null}
+      {data.next && data.next.length ? (
+        <div>
+          <div className="text-xs font-semibold text-foreground">Next steps</div>
+          <ul className="mt-1 list-disc pl-5 text-sm text-muted-foreground">
+            {data.next.map((s: string, i: number) => (
+              <li key={i}>{s}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {data.note ? <div className="text-xs text-muted-foreground">{data.note}</div> : null}
+    </div>
+  )
+}
+
+function deDupeJsonStrings(obj: any): any {
+  if (obj == null || typeof obj !== 'object') return obj
+  if (Array.isArray(obj)) return obj.map(deDupeJsonStrings)
+  const out: any = {}
+  for (const [k, v] of Object.entries(obj)) {
+    out[cleanText(k)] = typeof v === 'string' ? cleanText(v) : deDupeJsonStrings(v)
+  }
+  return out
+}
+
+function cleanText(s: string): string {
+  let t = (s || '').trim()
+  // collapse duplicated words (>=2 chars)
+  t = t.replace(/\b(\w{2,})\s+\1\b/gi, '$1')
+  // collapse duplicated punctuation
+  t = t.replace(/([,.:;])\1+/g, '$1')
+  // normalize spaces
+  t = t.replace(/\s{2,}/g, ' ')
+  return t
+}
+
+// Inline Tool Results
+function detectToolResultPayload(text: string): boolean {
+  const obj = safeParseJson(text)
+  return Boolean(obj && typeof obj === 'object' && !Array.isArray(obj) && (obj as any).tool_result)
+}
+
+function parseToolResultPayload(text: string): { name: string; result: any } | null {
+  const obj = safeParseJson(text)
+  if (!obj || Array.isArray(obj) || typeof obj !== 'object') return null
+  const tr = (obj as any).tool_result
+  if (!tr || typeof tr !== 'object') return null
+  return { name: String(tr.name || ''), result: (tr as any).result }
+}
+
+function ToolResultRenderer({ data }: { data: { name: string; result: any } }) {
+  const { name, result } = data
+  if (Array.isArray(result)) {
+    // Reuse list renderers (detect template results by kind)
+    const items = result as Array<any>
+    const isTemplates = items.length > 0 && items.every((it) => it?.kind === 'template')
+    return isTemplates ? <TemplateGridRenderer items={items} /> : <ToolListRenderer items={items} />
+  }
+
+  if (result && typeof result === 'object') {
+    // Common shapes
+    const title = (result as any).title || (result as any).name || data.name
+    const path = (result as any).path
+    const visibility = (result as any).visibility
+    const status = (result as any).status
+    return (
+      <div className="space-y-2">
+        <div className="rounded border bg-background p-2">
+          <div className="flex items-center justify-between">
+            <div className="font-medium">{String(title || name)}</div>
+            {status ? <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-800">{String(status)}</span> : null}
+            {visibility ? <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] text-purple-800">{String(visibility)}</span> : null}
+          </div>
+          {path ? (
+            <div className="mt-2">
+              <Link href={String(path)} prefetch className="text-sm underline">
+                Open
+              </Link>
+            </div>
+          ) : null}
+        </div>
+        {/* Raw data expander (minimal) */}
+        <details className="text-xs text-muted-foreground">
+          <summary>Details</summary>
+          <pre className="mt-1 max-h-48 overflow-auto rounded border bg-background p-2">{JSON.stringify(result, null, 2)}</pre>
+        </details>
+      </div>
+    )
+  }
+
+  if ((result as any)?.ok) {
+    return <div className="rounded border bg-background p-2 text-sm">Tool {name} completed.</div>
+  }
+
+  return (
+    <div className="rounded border bg-background p-2 text-sm">
+      {typeof result === 'string' ? result : 'Tool completed.'}
+    </div>
+  )
 }
 
 function shouldShowConfirm(msgs: ChatMessage[]): boolean {
@@ -500,10 +972,10 @@ function shouldShowConfirm(msgs: ChatMessage[]): boolean {
   return t.includes('proceed?') || t.includes('confirmation required') || t.includes('confirm=true')
 }
 
-function ToolListRenderer({ items }: { items: Array<{ id?: string; title?: string; snippet?: string; path?: string; url?: string }> }) {
+function ToolListRenderer({ items = [] }: { items?: Array<{ id?: string; title?: string; snippet?: string; path?: string; url?: string }> }) {
   return (
     <div className="space-y-2">
-      {items.map((it, i) => (
+      {(items || []).map((it, i) => (
         <div key={it.id ?? i} className="rounded border bg-background p-2 text-left">
           <div className="font-medium">
             {it.url ? (
@@ -559,10 +1031,10 @@ function useTemplateRenderer(items: Array<{ kind?: string }>): boolean {
   return sample.every((it) => (it as any).kind === 'template')
 }
 
-function TemplateGridRenderer({ items }: { items: Array<{ id?: string; title?: string; path?: string; tags?: string[]; categories?: string[] }> }) {
+function TemplateGridRenderer({ items = [] }: { items?: Array<{ id?: string; title?: string; path?: string; tags?: string[]; categories?: string[] }> }) {
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      {items.map((it, i) => (
+      {(items || []).map((it, i) => (
         <div key={it.id ?? i} className="rounded border bg-background p-3">
           <div className="mb-1 flex items-center justify-between gap-2">
             <div className="font-medium">
@@ -696,4 +1168,26 @@ function speakLatestAssistant(all: ChatMessage[]) {
 
 function stripMarkdown(s: string): string {
   return s.replace(/`{1,3}[\s\S]*?`{1,3}/g, '').replace(/[*_#>\[\]()~-]/g, '')
+}
+
+function detectToolCall(text: string): { name: string; args: Record<string, unknown> } | null {
+  const obj = safeParseJson(text)
+  if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+    const name = (obj as any)?.tool || (obj as any)?.name
+    const args = (obj as any)?.args || (obj as any)?.parameters
+    if (typeof name === 'string' && args && typeof args === 'object') {
+      return { name, args }
+    }
+  }
+  return null
+}
+
+function safeDataPreview(data: unknown): string {
+  try {
+    if (data == null) return 'null'
+    if (typeof data === 'string') return data.slice(0, 500)
+    return JSON.stringify(data, null, 2).slice(0, 1000)
+  } catch {
+    return String(data)
+  }
 }

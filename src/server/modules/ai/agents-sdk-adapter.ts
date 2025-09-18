@@ -16,7 +16,8 @@ function schemaToZod(schema: any): z.ZodTypeAny {
       // OpenAI function tools require all fields present; use nullable() for formerly-optional fields
       shape[key] = required.includes(key) ? base : base.nullable()
     }
-    return z.object(shape)
+    // .strict() maps to additionalProperties: false for OpenAI function schema
+    return z.object(shape).strict()
   }
   if (type === 'array') {
     const item = schemaToZod(schema.items ?? { type: 'any' })
@@ -37,6 +38,43 @@ function schemaToZod(schema: any): z.ZodTypeAny {
   }
   if (type === 'boolean') return z.boolean()
   return z.any()
+}
+
+function toApiSchema(schema: any): any {
+  if (!schema || typeof schema !== 'object') return { type: 'object', properties: {}, required: [], additionalProperties: false }
+  const clone: any = JSON.parse(JSON.stringify(schema))
+  return normalizeObjectSchema(clone)
+}
+
+function normalizeObjectSchema(node: any): any {
+  const t = node?.type
+  if (t === 'object') {
+    node.properties = node.properties ?? {}
+    const props = node.properties
+    const keys = Object.keys(props)
+    const originalReq: string[] = Array.isArray(node.required) ? node.required : []
+    for (const k of keys) {
+      props[k] = normalizeSchema(props[k])
+      if (!originalReq.includes(k)) {
+        if (props[k] && typeof props[k] === 'object') props[k].nullable = true
+      }
+    }
+    node.required = keys
+    node.additionalProperties = false
+    return node
+  }
+  return normalizeSchema(node)
+}
+
+function normalizeSchema(node: any): any {
+  if (!node || typeof node !== 'object') return node
+  const t = node.type
+  if (t === 'object') return normalizeObjectSchema(node)
+  if (t === 'array') {
+    node.items = normalizeSchema(node.items ?? { type: 'string' })
+    return node
+  }
+  return node
 }
 
 export async function runWithAgentsSDK(input: AgentInvokeInput): Promise<AgentInvokeFullResult> {
@@ -60,7 +98,7 @@ export async function runWithAgentsSDK(input: AgentInvokeInput): Promise<AgentIn
       toTool({
         name: t.name,
         description: t.description,
-        parameters: schemaToZod(t.parameters),
+        parameters: toApiSchema(t.parameters),
         execute: async (args: any) => t.execute(args, { userId: input.userId, workspaceId: input.workspaceId }),
       })
     ),
@@ -108,7 +146,7 @@ export async function runWithAgentsSDKStream(input: AgentInvokeInput): Promise<A
       toTool({
         name: t.name,
         description: t.description,
-        parameters: schemaToZod(t.parameters),
+        parameters: toApiSchema(t.parameters),
         execute: async (args: any) => t.execute(args, { userId: input.userId, workspaceId: input.workspaceId }),
       })
     ),

@@ -34,22 +34,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'File too large' }, { status: 413 })
   }
 
-  // Try audio transcription API; fall back with an explicit error if unsupported
+  // Try audio transcription API; prefer gpt-realtime in dev, fall back gracefully
   let transcriptText = ''
   try {
     const arrayBuf = await file.arrayBuffer()
     const blob = new Blob([arrayBuf], { type: (file as any).type || 'application/octet-stream' })
-    // Prefer new transcription model; fall back to whisper-1 if needed
-    const model = process.env.AUDIO_MODEL ?? 'gpt-4o-transcribe'
-    if (openai.audio?.transcriptions?.create) {
-      const result = await openai.audio.transcriptions.create({ file: blob as any, model })
-      transcriptText = (result?.text as string) || ''
-    } else if (openai.audio?.transcriptions) {
-      const result = await openai.audio.transcriptions.create({ file: blob as any, model: 'whisper-1' })
-      transcriptText = (result?.text as string) || ''
-    } else {
-      return NextResponse.json({ error: 'Transcription API unavailable' }, { status: 501 })
+    // Try preferred realtime model name first, then official transcribe models
+    const preferred = process.env.AUDIO_MODEL ?? 'gpt-realtime'
+    const tryModels = [preferred, 'gpt-4o-transcribe', 'whisper-1']
+    let ok = false
+    for (const m of tryModels) {
+      try {
+        const result = await openai.audio.transcriptions.create({ file: blob as any, model: m as any })
+        transcriptText = (result?.text as string) || ''
+        ok = true
+        break
+      } catch (err) {
+        // Try next
+      }
     }
+    if (!ok) return NextResponse.json({ error: 'Transcription API unavailable' }, { status: 501 })
   } catch (err: any) {
     return NextResponse.json({ error: 'Transcription failed', details: serializeError(err) }, { status: 500 })
   }
@@ -100,4 +104,3 @@ function serializeError(err: unknown) {
   }
   return { message: String(err) }
 }
-
