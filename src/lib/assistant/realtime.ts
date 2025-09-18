@@ -563,12 +563,61 @@ export class RealtimeClient {
         console.log('[RealtimeClient] WebSocket connected')
         this.connected = true
 
+        // Define tools for the session (OpenAI function format)
+        const tools = [
+          {
+            type: 'function',
+            name: 'create_document',
+            description: 'Create a new document in the workspace',
+            parameters: {
+              type: 'object',
+              properties: {
+                title: { type: 'string', description: 'Document title' },
+                content: { type: 'string', description: 'Document content in markdown' },
+                tags: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Optional tags for the document'
+                }
+              },
+              required: ['title', 'content']
+            }
+          },
+          {
+            type: 'function',
+            name: 'search_workspace_documents',
+            description: 'Search for documents in the workspace',
+            parameters: {
+              type: 'object',
+              properties: {
+                query: { type: 'string', description: 'Search query' },
+                limit: { type: 'integer', description: 'Max results (1-50)', default: 10 }
+              },
+              required: ['query']
+            }
+          },
+          {
+            type: 'function',
+            name: 'list_collections',
+            description: 'List document collections in the workspace',
+            parameters: {
+              type: 'object',
+              properties: {
+                limit: { type: 'integer', description: 'Max results (1-200)', default: 50 }
+              }
+            }
+          }
+        ]
+
         // Send initial session configuration
         // For GA API, the format might be slightly different
         const sessionConfig = {
           type: 'session.update',
           session: {
-            instructions: 'You are a helpful assistant.',
+            instructions: `You are a helpful assistant that can help manage documents and knowledge in this workspace.
+You have access to tools for creating documents, searching existing content, and organizing collections.
+When asked to create documentation or notes, use the create_document tool.
+When asked to find information, use the search_workspace_documents tool first.`,
             voice: 'verse',
             modalities: ['text', 'audio'],
             input_audio_format: 'pcm16',
@@ -584,7 +633,7 @@ export class RealtimeClient {
               silence_duration_ms: 500,
               create_response: true  // Automatically create response when speech stops
             },
-            tools: [],
+            tools: tools,
             tool_choice: 'auto',
             temperature: 0.8,
             max_response_output_tokens: 'inf'
@@ -651,8 +700,9 @@ export class RealtimeClient {
 
             case 'response.audio.delta':
               // Handle incoming audio chunks
-              if (data.delta && this.audioEl) {
-                this.playAudioChunk(data.delta, data.item_id)
+              if (data.delta) {
+                console.log('[RealtimeClient] Received audio delta')
+                this.playAudioChunk(data.delta, data.item_id || 'unknown')
               }
               break
 
@@ -729,6 +779,19 @@ export class RealtimeClient {
                   }
                 }
               }
+              break
+
+            case 'response.function_call_arguments.done':
+              // Tool call requested by the model
+              console.log('[RealtimeClient] Function call requested:', data)
+              if (data.name && data.arguments) {
+                this.handleToolCall(data.name, data.arguments)
+              }
+              break
+
+            case 'conversation.item.tool_call_created':
+              // Tool call item created
+              console.log('[RealtimeClient] Tool call created:', data)
               break
 
             case 'input_audio_buffer.speech_started':
@@ -885,5 +948,57 @@ export class RealtimeClient {
 
     this.currentSource = source
     source.start(0)
+  }
+
+  private async handleToolCall(name: string, args: string) {
+    console.log('[RealtimeClient] Handling tool call:', name, args)
+
+    try {
+      // Parse the arguments
+      const parsedArgs = JSON.parse(args)
+
+      // Call the tool execution endpoint
+      const response = await fetch('/api/ai/tools/exec', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // TODO: Add auth header if needed
+        },
+        body: JSON.stringify({
+          name: name,
+          args: parsedArgs
+        })
+      })
+
+      const result = await response.json()
+
+      // Send the tool result back to the conversation
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        const toolResponse = {
+          type: 'conversation.item.create',
+          item: {
+            type: 'function_call_output',
+            output: JSON.stringify(result)
+          }
+        }
+
+        console.log('[RealtimeClient] Sending tool response:', toolResponse)
+        this.ws.send(JSON.stringify(toolResponse))
+      }
+    } catch (err) {
+      console.error('[RealtimeClient] Error handling tool call:', err)
+
+      // Send error response
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        const errorResponse = {
+          type: 'conversation.item.create',
+          item: {
+            type: 'function_call_output',
+            output: JSON.stringify({ error: String(err) })
+          }
+        }
+        this.ws.send(JSON.stringify(errorResponse))
+      }
+    }
   }
 }
