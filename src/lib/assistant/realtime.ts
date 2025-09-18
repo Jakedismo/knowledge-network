@@ -17,8 +17,10 @@ export class RealtimeClient {
   private audioEl: HTMLAudioElement | null = null
   private Ctors: { RealtimeSession?: any; RealtimeAgent?: any; OpenAIRealtimeWebRTC?: any } = {}
   private ws: WebSocket | null = null
-  private audioQueue: { itemId: string; audio: ArrayBuffer }[] = []
+  private audioQueue: AudioBuffer[] = []
   private playbackContext: AudioContext | null = null
+  private isPlaying = false
+  private currentSource: AudioBufferSourceNode | null = null
 
   constructor(events: RealtimeEvents = {}) {
     this.events = events
@@ -377,6 +379,26 @@ export class RealtimeClient {
   }
 
   async disconnect() {
+    // Stop any playing audio
+    if (this.currentSource) {
+      try {
+        this.currentSource.stop()
+        this.currentSource = null
+      } catch {}
+    }
+
+    // Clear audio queue
+    this.audioQueue = []
+    this.isPlaying = false
+
+    // Close audio context
+    if (this.playbackContext) {
+      try {
+        await this.playbackContext.close()
+        this.playbackContext = null
+      } catch {}
+    }
+
     // Close WebSocket if using direct connection
     if (this.ws) {
       try {
@@ -552,9 +574,8 @@ export class RealtimeClient {
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
             input_audio_transcription: {
-              model: 'whisper-1'
-              // Omit language field to allow auto-detection
-              // Don't include null values as they cause validation errors
+              model: 'whisper-1',
+              language: 'en'  // Force English transcription
             },
             turn_detection: {
               type: 'server_vad',
@@ -638,6 +659,19 @@ export class RealtimeClient {
             case 'response.audio.done':
               // Audio response completed
               console.log('[RealtimeClient] Audio response completed')
+              break
+
+            case 'response.created':
+              // Response created - clear any pending audio for fresh start
+              console.log('[RealtimeClient] Response created')
+              this.audioQueue = []
+              if (this.currentSource) {
+                try {
+                  this.currentSource.stop()
+                  this.currentSource = null
+                } catch {}
+              }
+              this.isPlaying = false
               break
 
             case 'response.done':
@@ -811,15 +845,45 @@ export class RealtimeClient {
       const audioBuffer = this.playbackContext.createBuffer(1, float32.length, 24000)
       audioBuffer.copyToChannel(float32, 0)
 
-      // Create a buffer source and play it
-      const source = this.playbackContext.createBufferSource()
-      source.buffer = audioBuffer
-      source.connect(this.playbackContext.destination)
-      source.start()
+      // Add to queue
+      this.audioQueue.push(audioBuffer)
+      console.log('[RealtimeClient] Added audio chunk to queue, queue size:', this.audioQueue.length)
 
-      console.log('[RealtimeClient] Playing audio chunk for item:', itemId)
+      // Start playback if not already playing
+      if (!this.isPlaying) {
+        this.playNextInQueue()
+      }
     } catch (err) {
-      console.error('[RealtimeClient] Error playing audio:', err)
+      console.error('[RealtimeClient] Error processing audio:', err)
     }
+  }
+
+  private playNextInQueue() {
+    if (!this.playbackContext || this.audioQueue.length === 0) {
+      this.isPlaying = false
+      return
+    }
+
+    this.isPlaying = true
+    const audioBuffer = this.audioQueue.shift()!
+
+    // Create and play the source
+    const source = this.playbackContext.createBufferSource()
+    source.buffer = audioBuffer
+    source.connect(this.playbackContext.destination)
+
+    // When this chunk ends, play the next one
+    source.onended = () => {
+      this.currentSource = null
+      if (this.audioQueue.length > 0) {
+        this.playNextInQueue()
+      } else {
+        this.isPlaying = false
+        console.log('[RealtimeClient] Audio playback complete')
+      }
+    }
+
+    this.currentSource = source
+    source.start(0)
   }
 }
