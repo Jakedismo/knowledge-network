@@ -79,17 +79,16 @@ export function RecommendationsWidget() {
       return
     }
 
-    const controller = new AbortController()
     setLoading(true)
     setError(null)
 
     try {
       const [personalized, trending, gaps, experts, duplicates] = await Promise.all([
-        fetchJson<PersonalizedResponse>(`/api/recommendations/personalized`, { workspace: workspaceId, limit: '5' }, accessToken, controller.signal),
-        fetchJson<TrendingResponse>(`/api/recommendations/trending`, { workspace: workspaceId }, accessToken, controller.signal),
-        fetchJson<GapsResponse>(`/api/recommendations/gaps`, { workspace: workspaceId }, accessToken, controller.signal),
-        fetchJson<ExpertsResponse>(`/api/recommendations/experts`, { workspace: workspaceId }, accessToken, controller.signal),
-        fetchJson<DuplicatesResponse>(`/api/recommendations/duplicates`, { workspace: workspaceId }, accessToken, controller.signal),
+        fetchJson<PersonalizedResponse>(`/api/recommendations/personalized`, { workspace: workspaceId, limit: '5' }, accessToken),
+        fetchJson<TrendingResponse>(`/api/recommendations/trending`, { workspace: workspaceId }, accessToken),
+        fetchJson<GapsResponse>(`/api/recommendations/gaps`, { workspace: workspaceId }, accessToken),
+        fetchJson<ExpertsResponse>(`/api/recommendations/experts`, { workspace: workspaceId }, accessToken),
+        fetchJson<DuplicatesResponse>(`/api/recommendations/duplicates`, { workspace: workspaceId }, accessToken),
       ])
 
       setState({ personalized, trending, gaps, experts, duplicates })
@@ -101,8 +100,6 @@ export function RecommendationsWidget() {
     } finally {
       setLoading(false)
     }
-
-    return () => controller.abort()
   }, [accessToken, workspaceId])
 
   useEffect(() => {
@@ -189,7 +186,7 @@ export function RecommendationsWidget() {
   )
 }
 
-async function fetchJson<T>(path: string, params: Record<string, string>, token: string, signal: AbortSignal): Promise<T> {
+async function fetchJson<T>(path: string, params: Record<string, string>, token: string, signal?: AbortSignal): Promise<T> {
   const search = new URLSearchParams(params)
   const response = await fetch(`${path}?${search.toString()}`, {
     method: 'GET',
@@ -340,4 +337,3 @@ function SkeletonBadges({ count }: { count: number }) {
     </div>
   )
 }
-
