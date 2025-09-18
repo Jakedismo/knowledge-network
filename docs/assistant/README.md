@@ -26,13 +26,18 @@ Scope: UI and provider-agnostic interfaces only. No AI infra, embeddings, or mod
 - Visit `/editor-demo` to see the suggestions sidebar update based on selection.
 - Stories available under `Assistant/*` in Storybook.
 
-## Provider integration (future)
+## Provider integration
 
 Set `NEXT_PUBLIC_ASSISTANT_MODE` to select a provider (default: `mock`).
 
-Planned modes:
-- `agents`: OpenAI Agents SDK-backed provider (deferred to 4A owner).
-- `mcp`: MCP server-backed provider (deferred to mcp-protocol-expert).
+Available modes:
+- `mock`: deterministic offline provider (no network)
+- `agents`: real provider calling `/api/ai/execute` (Agents SDK on server)
+
+Server requirements for `agents` mode:
+- Env: `OPENAI_API_KEY`, optionally `OPENAI_BASE_URL`, `OPENAI_ORG_ID`, `AI_DEFAULT_MODEL=gpt-5-mini`, `AI_ENGINE=agents`.
+- Packages installed on server: `@openai/agents` and `openai`.
+- Health check: `GET /api/ai/health` returns `{configured:true, engine:"agents", engineReady:true}` when ready.
 
 Provider interface is defined by `AssistantProvider` in `src/lib/assistant/types.ts`.
 
@@ -52,4 +57,4 @@ Provider interface is defined by `AssistantProvider` in `src/lib/assistant/types
 - 4A (AI Services Backend): Implement provider(s) for chat, suggestions, fact-checking, research, and transcription.
 - 2D/Backend: Expose KB search and citation APIs for fact-check grounding.
 - Wire FactCheck evidence to actual document/section IDs when available.
-
+- Add `/api/ai/transcribe` for audio uploads and integrate OpenAI transcription or Agents SDK toolchain.
