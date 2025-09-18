@@ -4,7 +4,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar } from '@/components/ui/avatar'
 import {
   User,
   Briefcase,
@@ -39,10 +39,15 @@ export default function ProfilePage() {
       <div className="space-y-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16 border-2 border-primary/40">
-              <AvatarImage src="/avatars/alex.png" alt="Alex Rivera" />
-              <AvatarFallback>AR</AvatarFallback>
-            </Avatar>
+            <Avatar
+              src="/avatars/alex.png"
+              alt="Alex Rivera"
+              size="xl"
+              showStatus
+              status="online"
+              fallback={<span className="text-lg font-semibold">AR</span>}
+              className="border-2 border-primary/40"
+            />
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Alex Rivera</h1>
               <p className="text-muted-foreground">

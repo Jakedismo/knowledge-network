@@ -6,11 +6,11 @@ FROM oven/bun:1-slim AS dependencies
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json bun.lockb ./
+# Copy package files (supports either bun.lock or bun.lockb)
+COPY package.json bun.lock* ./
 
-# Install dependencies
-RUN bun install --frozen-lockfile --production=false
+# Install dependencies (includes dev deps for build stage)
+RUN bun install --frozen-lockfile
 
 # Stage 2: Build
 FROM oven/bun:1-slim AS builder

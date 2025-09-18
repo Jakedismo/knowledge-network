@@ -5,6 +5,7 @@
 ### Creating Your Account
 
 #### Option 1: Email Registration
+
 1. Navigate to the Knowledge Network application
 2. Click **"Sign Up"** on the login page
 3. Enter your details:
@@ -15,6 +16,7 @@
 5. Complete your profile setup
 
 #### Option 2: Single Sign-On (SSO)
+
 1. Click **"Sign in with Google"** or **"Sign in with Microsoft"**
 2. Authorize Knowledge Network to access your basic profile
 3. Your account will be created automatically
@@ -185,19 +187,22 @@ Workspace
 
 ### Installing the Mobile App (PWA)
 
-#### On iOS:
+#### On iOS
+
 1. Open Safari and navigate to Knowledge Network
 2. Tap the Share button (square with arrow)
 3. Scroll down and tap "Add to Home Screen"
 4. Name the app and tap "Add"
 
-#### On Android:
+#### On Android
+
 1. Open Chrome and navigate to Knowledge Network
 2. You'll see an "Install app" banner
 3. Tap "Install"
 4. Or use menu → "Add to Home Screen"
 
 ### Mobile Features
+
 - Full document editing
 - Offline access to recent documents
 - Touch-optimized interface
@@ -254,7 +259,7 @@ Workspace
 - **Documentation**: You're reading it!
 - **Video Tutorials**: Available in Help menu
 - **Support Chat**: Click chat bubble (bottom-right)
-- **Email Support**: support@knowledgenetwork.com
+- **Email Support**: <support@knowledgenetwork.com>
 
 ## Next Steps
 

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -16,6 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { cn } from '@/lib/utils'
 import { Search, Filter, Plus, ExternalLink } from 'lucide-react'
 
 const documents = [
@@ -79,18 +80,20 @@ export default function KnowledgeDocumentsPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" asChild>
-              <Link href="/templates">
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Use Template
-              </Link>
-            </Button>
-            <Button asChild>
-              <Link href="/editor">
-                <Plus className="mr-2 h-4 w-4" />
-                New Document
-              </Link>
-            </Button>
+            <Link
+              href="/templates"
+              className={cn(buttonVariants({ variant: 'outline' }), 'gap-2')}
+            >
+              <ExternalLink className="h-4 w-4" />
+              Use Template
+            </Link>
+            <Link
+              href="/editor"
+              className={cn(buttonVariants(), 'gap-2')}
+            >
+              <Plus className="h-4 w-4" />
+              New Document
+            </Link>
           </div>
         </div>
 
@@ -134,7 +137,10 @@ export default function KnowledgeDocumentsPage() {
                       {documents.map((doc) => (
                         <TableRow key={doc.name}>
                           <TableCell>
-                            <Link href={`/knowledge/${encodeURIComponent(doc.name.toLowerCase().replace(/\s+/g, '-'))}`} className="font-medium hover:underline">
+                            <Link
+                              href={`/knowledge/${encodeURIComponent(doc.name.toLowerCase().replace(/\s+/g, '-'))}`}
+                              className="font-medium hover:underline"
+                            >
                               {doc.name}
                             </Link>
                           </TableCell>

@@ -3,8 +3,9 @@
 import Link from 'next/link'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import {
   Plus,
   Wand2,
@@ -45,12 +46,13 @@ export default function NewDocumentPage() {
               Kick off new knowledge artifacts with AI assisted authoring or curated templates.
             </p>
           </div>
-          <Button asChild>
-            <Link href="/editor">
-              <Plus className="mr-2 h-4 w-4" />
-              Open editor
-            </Link>
-          </Button>
+          <Link
+            href="/editor"
+            className={cn(buttonVariants(), 'gap-2')}
+          >
+            <Plus className="h-4 w-4" />
+            Open editor
+          </Link>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
@@ -62,9 +64,12 @@ export default function NewDocumentPage() {
               <CardContent className="space-y-2 text-sm text-muted-foreground">
                 <p>{item.description}</p>
                 <Badge variant="outline">{item.badge}</Badge>
-                <Button variant="ghost" className="px-0" asChild>
-                  <Link href={item.href}>Choose</Link>
-                </Button>
+                <Link
+                  href={item.href}
+                  className="inline-flex items-center text-sm font-medium text-primary hover:text-primary/80"
+                >
+                  Choose
+                </Link>
               </CardContent>
             </Card>
           ))}

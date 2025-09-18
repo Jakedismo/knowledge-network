@@ -3,10 +3,11 @@
 import Link from 'next/link'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { cn } from '@/lib/utils'
 import {
   FolderKanban,
   Users,
@@ -82,12 +83,13 @@ export default function KnowledgeCollectionsPage() {
               <Layers className="mr-2 h-4 w-4" />
               Manage badges
             </Button>
-            <Button asChild>
-              <Link href="/editor">
-                <Plus className="mr-2 h-4 w-4" />
-                New collection draft
-              </Link>
-            </Button>
+            <Link
+              href="/editor"
+              className={cn(buttonVariants(), 'gap-2')}
+            >
+              <Plus className="h-4 w-4" />
+              New collection draft
+            </Link>
           </div>
         </div>
 
@@ -122,12 +124,13 @@ export default function KnowledgeCollectionsPage() {
                     <Users className="h-3.5 w-3.5" />
                     {collection.members} members
                   </span>
-                  <Button variant="ghost" size="sm" className="px-2" asChild>
-                    <Link href={`/knowledge/${encodeURIComponent(collection.name.toLowerCase().replace(/\s+/g, '-'))}`}>
-                      View space
-                      <ArrowRight className="ml-1 h-3.5 w-3.5" />
-                    </Link>
-                  </Button>
+                  <Link
+                    href={`/knowledge/${encodeURIComponent(collection.name.toLowerCase().replace(/\s+/g, '-'))}`}
+                    className="inline-flex items-center gap-1 text-primary hover:text-primary/80"
+                  >
+                    View space
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
                 </div>
               </CardContent>
             </Card>

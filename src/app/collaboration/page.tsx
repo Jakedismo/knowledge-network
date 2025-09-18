@@ -3,9 +3,10 @@
 import Link from 'next/link'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 import {
   Users,
   Activity,
@@ -65,12 +66,13 @@ export default function CollaborationPage() {
               Monitor live sessions, coordinate reviews, and keep teams aligned while working inside the knowledge network.
             </p>
           </div>
-          <Button asChild>
-            <Link href="/collaboration/active">
-              <Radio className="mr-2 h-4 w-4" />
-              Open live sessions
-            </Link>
-          </Button>
+          <Link
+            href="/collaboration/active"
+            className={cn(buttonVariants(), 'gap-2')}
+          >
+            <Radio className="h-4 w-4" />
+            Open live sessions
+          </Link>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
@@ -81,12 +83,13 @@ export default function CollaborationPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-sm text-muted-foreground">{highlight.description}</p>
-                <Button variant="ghost" className="px-0" asChild>
-                  <Link href={highlight.href}>
-                    View details
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
+                <Link
+                  href={highlight.href}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80"
+                >
+                  View details
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
               </CardContent>
             </Card>
           ))}

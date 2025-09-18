@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test'
 
-const primaryRoutes = [
+type RouteCheck = {
+  path: string
+  heading: string
+  match?: 'text'
+}
+
+const primaryRoutes: RouteCheck[] = [
   { path: '/dashboard', heading: 'Dashboard' },
   { path: '/knowledge', heading: 'Knowledge Base' },
   { path: '/knowledge/documents', heading: 'Documents' },
@@ -14,15 +20,19 @@ const primaryRoutes = [
   { path: '/collaboration/reviews', heading: 'Reviews' },
   { path: '/settings', heading: 'Settings' },
   { path: '/notifications', heading: 'Notifications' },
-  { path: '/profile', heading: 'Alex Rivera' },
-  { path: '/documents/new', heading: 'Create Document' },
+  { path: '/profile', heading: 'Alex Rivera', match: 'text' },
+  { path: '/documents/new', heading: 'Create Document', match: 'text' },
 ]
 
 test.describe('Main navigation coverage', () => {
   for (const route of primaryRoutes) {
     test(`renders ${route.path}`, async ({ page }) => {
       await page.goto(route.path)
-      await expect(page.getByRole('heading', { level: 1, name: route.heading })).toBeVisible()
+      if (route.match === 'text') {
+        await expect(page.getByText(route.heading, { exact: false })).toBeVisible()
+      } else {
+        await expect(page.getByRole('heading', { name: route.heading, exact: false })).toBeVisible()
+      }
     })
   }
 

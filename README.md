@@ -44,7 +44,7 @@ Knowledge Network is a comprehensive collaborative knowledge management platform
 │        │             │                 │            │
 │  ┌─────▼─────────────▼─────────────────▼──────────┐ │
 │  │            API Routes & Middleware             │ │
-│  └────────────────────┬───────────────────────────┘ │
+│  └───────────────────┬────────────────────────────┘ │
 └──────────────────────┼──────────────────────────────┘
                        │
          ┌─────────────┼─────────────┐
@@ -86,6 +86,29 @@ bun run migrate
 # Start development server
 bun run dev
 ```
+
+### Docker Compose (Local Deployment)
+
+```bash
+# Build and start core services (app, Postgres, Redis, Elasticsearch)
+docker compose up --build
+
+# Include realtime collaboration server
+docker compose --profile realtime up --build
+
+# Add Kibana for search inspection
+docker compose --profile observability up
+
+# Shut everything down
+docker compose down
+```
+
+Notes:
+- Environment defaults live in `.env.docker`; adjust secrets or service URLs there before running.
+- Prisma migrations execute automatically on container start (`bunx prisma migrate deploy`).
+- Data persists through named volumes (`postgres-data`, `redis-data`, `es-data`, `uploads-data`, `collab-data`).
+- The realtime service is optional; enable the `realtime` profile when collaborative editing is required.
+- Kibana is gated behind the `observability` profile to keep the default stack lightweight.
 
 Open [http://localhost:3000](http://localhost:3000) to see the application.
 

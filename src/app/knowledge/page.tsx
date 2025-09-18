@@ -3,9 +3,10 @@
 import Link from 'next/link'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ResponsiveGrid, GridItem } from '@/components/ui/grid'
+import { cn } from '@/lib/utils'
 import {
   BookOpen,
   Sparkles,
@@ -91,18 +92,20 @@ export default function KnowledgeHomePage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" asChild>
-              <Link href="/search">
-                <Filter className="mr-2 h-4 w-4" />
-                Advanced Filters
-              </Link>
-            </Button>
-            <Button asChild>
-              <Link href="/editor">
-                <Sparkles className="mr-2 h-4 w-4" />
-                Create Knowledge
-              </Link>
-            </Button>
+            <Link
+              href="/search"
+              className={cn(buttonVariants({ variant: 'outline' }), 'gap-2')}
+            >
+              <Filter className="h-4 w-4" />
+              Advanced Filters
+            </Link>
+            <Link
+              href="/editor"
+              className={cn(buttonVariants(), 'gap-2')}
+            >
+              <Sparkles className="h-4 w-4" />
+              Create Knowledge
+            </Link>
           </div>
         </div>
 
@@ -123,9 +126,12 @@ export default function KnowledgeHomePage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <p className="text-sm text-muted-foreground">{link.description}</p>
-                    <Button variant="ghost" className="px-0" asChild>
-                      <Link href={link.href}>Browse {link.title}</Link>
-                    </Button>
+                    <Link
+                      href={link.href}
+                      className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80"
+                    >
+                      Browse {link.title}
+                    </Link>
                   </CardContent>
                 </Card>
               </GridItem>

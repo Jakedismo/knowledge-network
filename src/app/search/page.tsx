@@ -63,15 +63,19 @@ export default function SearchPage() {
   return (
     <AppLayout>
       <div className="space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Unified Knowledge Search</h1>
+          <p className="text-muted-foreground mt-2">
+            Find documents, collections, discussions, and assistant answers with a single query.
+          </p>
+        </div>
+
         <Card className="border border-primary/20 bg-gradient-to-br from-primary/5 via-background to-background">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-2xl">
               <Search className="h-6 w-6 text-primary" />
-              Unified Knowledge Search
+              Search workspace
             </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Find documents, collections, discussions, and AI assistant answers with a single query.
-            </p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col gap-2 md:flex-row md:items-center">
