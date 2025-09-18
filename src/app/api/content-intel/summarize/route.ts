@@ -1,15 +1,11 @@
 import { NextResponse } from 'next/server'
 import { summarize } from '@/server/modules/content-intel/summarize'
 import { detectLanguage } from '@/server/modules/content-intel/tokenize'
-function requireBasicAuth(req: Request): Response | null {
-  const userId = req.headers.get('x-user-id')
-  if (!userId) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
-  return null
-}
+import { ensureAuthorized } from '@/server/modules/content-intel/auth'
 
 export async function POST(req: Request) {
   try {
-    const unauth = requireBasicAuth(req)
+    const unauth = await ensureAuthorized(req)
     if (unauth) return unauth
     const body = (await req.json()) as { content?: string; maxSentences?: number; languageHint?: any }
     if (!body?.content || typeof body.content !== 'string') return NextResponse.json({ error: 'content required' }, { status: 400 })

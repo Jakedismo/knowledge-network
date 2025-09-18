@@ -36,6 +36,17 @@ Scope: Auto‑tagging, summarization, concepts/entities, readability & quality s
 ### Runtime Controls
 
 - `CONTENT_INTEL_ENRICH` (default: enabled). Set to `0` to disable enrichment during knowledge create/update. When disabled, APIs remain available but server will not auto-enrich documents.
+- `USE_ORG_GUARD` (default: `0`). Set to `1` to enforce org ACL via `requireAccess` for content-intel routes.
+- `AGENTS_SUMMARIZE_ENABLED` / `AGENTS_TRANSLATE_ENABLED` (default: `0`). When set to `1`, summarization/translation use the Agents integration hook (`/api/ai/execute` → server `executeAgent`).
+- `OPENAI_AGENTS_MODE` (default: `local`). Set to `openai` when wiring the real OpenAI Agents SDK; server will throw a clear error until configured.
+
+### Agents Integration (Ready for Extension)
+
+- Server entrypoint: `src/server/modules/ai/execute.ts` with `executeAgent({ instructions, input })`.
+- API endpoint for FE: `POST /api/ai/execute` returns `{ outputText }`.
+- Content-intel providers:
+  - `AgentSummarizer` and `AgentTranslator` call `executeAgent` with `task: 'summarize'|'translate'`.
+  - Toggle via env flags above; local heuristics remain as fallback.
 
 ## Integration Points
 

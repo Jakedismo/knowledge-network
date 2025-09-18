@@ -3,7 +3,7 @@
   "compilerOptions": {
     "noEmit": true,
     "incremental": false,
-    "types": [],
+    "types": ["node"],
     "typeRoots": []
   },
   "include": [

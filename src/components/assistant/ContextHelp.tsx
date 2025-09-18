@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { createAssistantProvider } from '@/lib/assistant/provider'
 
 export function ContextHelp({ route, selectionText }: { route?: string; selectionText?: string }) {
-  const provider = useMemo(() => createAssistantProvider({ mode: 'mock' }), [])
+  const provider = useMemo(() => createAssistantProvider(), [])
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<{ id: string; title: string; body: string }[]>([])
 
@@ -39,4 +39,3 @@ export function ContextHelp({ route, selectionText }: { route?: string; selectio
 }
 
 export default ContextHelp
-

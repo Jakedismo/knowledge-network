@@ -1,6 +1,7 @@
 import type { ActivityEvent, Content } from './types'
 import { prisma } from '@/lib/db/prisma'
 import { KnowledgeStatus, ActivityAction } from '@prisma/client'
+import { KnowledgeStatus as SearchKnowledgeStatus } from '@/server/modules/search/types'
 
 let eventCounter = 0
 
@@ -66,7 +67,7 @@ export class PrismaRecommendationDataSource implements RecommendationDataSource 
       title: row.title,
       content: row.content,
       excerpt: row.excerpt ?? undefined,
-      status: row.status,
+      status: row.status as unknown as SearchKnowledgeStatus,
       author: { id: row.author.id, displayName: row.author.displayName },
       collection: row.collection
         ? { id: row.collection.id, name: row.collection.name, path: row.collection.name }
@@ -104,7 +105,7 @@ export class PrismaRecommendationDataSource implements RecommendationDataSource 
 
     const created = await prisma.activityLog.create({
       data: {
-        id: event.id,
+        ...(event.id ? { id: event.id } : {}),
         action,
         resourceType: event.knowledgeId ? 'KNOWLEDGE' : 'WORKSPACE',
         resourceId: event.knowledgeId ?? null,

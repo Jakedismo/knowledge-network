@@ -10,8 +10,8 @@ Summary:
 - Near-duplicates: MinHash-based clustering with deterministic hashes.
 - Experts: engagement-weighted expertise per tag and overall per author.
 - Related content: cosine on `searchVector` if present; lexical fallback otherwise.
-- API routes `/api/recommendations/*` wired with zod validation + JWT guard (demo bypass via `?demo=1`).
-- Demo UI at `/recommendations` surfaces for-you, trending, gaps, experts, duplicates.
+- API routes `/api/recommendations/*` now backed by Prisma data, zod validation, JWT auth, and workspace membership checks.
+- Client widget (`<RecommendationsWidget />`) powers `/recommendations` with refresh/error states, consuming live endpoints.
 
 Backend coordination:
 - See `docs/api/recommendations-contract.md` for proposed endpoints and inputs.
@@ -19,6 +19,6 @@ Backend coordination:
 - Honors `IndexDocument` from search module; vectors optional.
 
 Next steps:
-- Wire API routes to surface module outputs; enforce RBAC filtering.
-- Optionally stream events into a compact store; evaluate Redis or Postgres.
-- If/when embeddings are available, populate `IndexDocument.searchVector`.
+- Instrument API with metrics/observability (p95 latency, cache hit rate, CTR uplifts) and fold into Quality Gates.
+- Replace in-memory fallbacks by streaming activity events into durable store (Redis stream or Kafka) for scale.
+- Populate `knowledge_embeddings` via Phase 4 AI pipeline to unlock richer related-content signals.

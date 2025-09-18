@@ -36,9 +36,9 @@ Non-goals (per brief): No chatbot, no external AI service wiring, no heavy conte
 
 ## API & UI Integration (Phase 4D wiring)
 
-- API routes (`/api/recommendations/*`) expose personalized, trending, gaps, experts, related, duplicates, and event recording endpoints with zod validation + JWT enforcement (demo bypass via `?demo=1`).
-- In-memory data source seeds deterministic demo corpus (`registry.ts`, `demo-data.ts`) for local testing; swap by implementing `RecommendationDataSource`.
-- Server-rendered showcase at `/recommendations` pulls directly from `RecommendationService` to highlight "For you", trending, gaps, experts, and duplicate clusters.
+- API routes (`/api/recommendations/*`) expose personalized, trending, gaps, experts, related, duplicates, and event recording endpoints with zod validation + JWT enforcement. Access is gated by workspace membership (via `user_workspace_roles`) with admin overrides.
+- Production default uses `PrismaRecommendationDataSource`, which stitches knowledge, embeddings, and activity logs from Postgres. `RECOMMENDATIONS_DATA_SOURCE=memory` retains the seeded demo provider for tests and Storybook.
+- Client-side `<RecommendationsWidget />` fetches through the authenticated REST endpoints and powers `/recommendations`, providing refresh, loading, and error handling states.
 
 ## Quality
 

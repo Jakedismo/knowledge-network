@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { createAssistantProvider } from '@/lib/assistant/provider'
 
 export function TranscriptionUploader() {
-  const provider = useMemo(() => createAssistantProvider({ mode: 'mock' }), [])
+  const provider = useMemo(() => createAssistantProvider(), [])
   const [summary, setSummary] = useState<string>('')
   const [items, setItems] = useState<{ id: string; text: string; owner?: string; due?: string }[]>([])
   const [busy, setBusy] = useState(false)
@@ -54,4 +54,3 @@ export function TranscriptionUploader() {
 }
 
 export default TranscriptionUploader
-

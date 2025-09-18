@@ -188,7 +188,9 @@ export function RecommendationsWidget() {
 
 async function fetchJson<T>(path: string, params: Record<string, string>, token: string, signal?: AbortSignal): Promise<T> {
   const search = new URLSearchParams(params)
-  const response = await fetch(`${path}?${search.toString()}`, {
+  const query = search.toString()
+  const url = query ? `${path}?${query}` : path
+  const response = await fetch(url, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`,

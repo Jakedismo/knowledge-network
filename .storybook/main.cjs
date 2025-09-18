@@ -44,11 +44,17 @@ module.exports = {
     }
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
-      'next/image': require('path').resolve(__dirname, './mocks/NextImage.tsx'),
-      'next/link': require('path').resolve(__dirname, './mocks/NextLink.tsx'),
-      'next/router': require('path').resolve(__dirname, './mocks/NextRouter.ts'),
-      'next/navigation': require('path').resolve(__dirname, './mocks/NextNavigation.ts'),
-      'react-dom/client': false,
+      react: require.resolve('react'),
+      'react-dom': require.resolve('react-dom'),
+      'react-dom/client': require.resolve('react-dom/client'),
+      'react/jsx-runtime': require.resolve('react/jsx-runtime'),
+      'react/jsx-dev-runtime': require.resolve('react/jsx-dev-runtime'),
+      '@': require('path').resolve(__dirname, '../src'),
+      'next/image': require('path').resolve(__dirname, './mocks/NextImage.js'),
+      'next/link': require('path').resolve(__dirname, './mocks/NextLink.js'),
+      'next/router': require('path').resolve(__dirname, './mocks/NextRouter.js'),
+      'next/navigation': require('path').resolve(__dirname, './mocks/NextNavigation.js'),
+      'next/head': require('path').resolve(__dirname, './mocks/NextHead.js'),
     }
     config.module = config.module || {}
     config.module.rules = config.module.rules || []
@@ -96,6 +102,18 @@ module.exports = {
                   },
                 },
               },
+            },
+          },
+        ],
+      },
+      {
+        test: /\.mdx?$/,
+        use: [
+          {
+            loader: require.resolve('@mdx-js/loader'),
+            options: {
+              jsx: true,
+              providerImportSource: '@mdx-js/react',
             },
           },
         ],

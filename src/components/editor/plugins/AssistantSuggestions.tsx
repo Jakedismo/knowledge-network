@@ -5,7 +5,7 @@ import { createAssistantProvider } from '@/lib/assistant/provider'
 import type { SuggestionItem } from '@/lib/assistant/types'
 
 export function AssistantSuggestions({ ctx, getSelectionText }: { ctx?: EditorContext; getSelectionText?: () => string }) {
-  const provider = useMemo(() => createAssistantProvider({ mode: 'mock' }), [])
+  const provider = useMemo(() => createAssistantProvider(), [])
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([])
   const [text, setText] = useState('')
 

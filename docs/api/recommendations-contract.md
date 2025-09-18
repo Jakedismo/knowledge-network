@@ -17,14 +17,14 @@ Scope: Data contracts and service boundaries for algorithms in `src/server/modul
 
 ## Services
 
-- GET /api/recommendations/personalized?user={id}&workspace={id}&limit=20
+- GET /api/recommendations/personalized?workspace={id}&limit=20
   - returns: `Scored<IndexDocument>[]`
-  - notes: server-side render friendly; requires events store or recent cache
+  - notes: user ID derived from JWT subject; requires events store or recent cache
 
 - GET /api/recommendations/trending?workspace={id}
   - returns: `{ tags: TrendingTopic[], items: Scored<IndexDocument>[] }`
 
-- GET /api/recommendations/gaps?user={id}&workspace={id}
+- GET /api/recommendations/gaps?workspace={id}
   - returns: `{ underexposedTags: {tagId, deficit}[], recommendations: Scored<IndexDocument>[] }`
 
 - GET /api/recommendations/experts?workspace={id}
@@ -37,7 +37,7 @@ Scope: Data contracts and service boundaries for algorithms in `src/server/modul
   - returns: `DuplicateSet[]`
 
 - POST /api/recommendations/events
-  - body: `ActivityEvent` payload (timestamp optional; defaults to now)
+  - body: `ActivityEvent` payload without `userId` (derived from token); timestamp optional (defaults to now)
   - returns: persisted event for audit/backfill
 
 ## Storage & Metrics (non-binding)
@@ -48,5 +48,5 @@ Scope: Data contracts and service boundaries for algorithms in `src/server/modul
 
 ## Security & Privacy
 
-- Access control: filter by user permissions; do not emit items user cannot access
+- Access control: JWT required; workspace membership enforced via `user_workspace_roles` (admins bypass). Filter out documents user cannot access.
 - PII: none required beyond `userId`; avoid storing free-text queries unless anonymized

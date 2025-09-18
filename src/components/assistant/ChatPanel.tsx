@@ -9,7 +9,7 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
-  const provider = useMemo(() => createAssistantProvider({ mode: 'mock' }), [])
+  const provider = useMemo(() => createAssistantProvider(), [])
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const formRef = useRef<HTMLFormElement>(null)
@@ -71,4 +71,3 @@ export function ChatPanel({ documentId, selectionText }: ChatPanelProps) {
 }
 
 export default ChatPanel
-

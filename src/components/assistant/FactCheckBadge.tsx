@@ -8,7 +8,7 @@ interface FactCheckBadgeProps {
 }
 
 export function FactCheckBadge({ claim, documentId }: FactCheckBadgeProps) {
-  const provider = useMemo(() => createAssistantProvider({ mode: 'mock' }), [])
+  const provider = useMemo(() => createAssistantProvider(), [])
   const [status, setStatus] = useState<'idle' | 'running' | 'done'>('idle')
   const [result, setResult] = useState<string>('')
 
@@ -33,4 +33,3 @@ export function FactCheckBadge({ claim, documentId }: FactCheckBadgeProps) {
 }
 
 export default FactCheckBadge
-

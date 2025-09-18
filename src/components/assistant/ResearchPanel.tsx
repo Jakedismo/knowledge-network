@@ -4,7 +4,7 @@ import { createAssistantProvider } from '@/lib/assistant/provider'
 import type { ResearchRequest } from '@/lib/assistant/types'
 
 export function ResearchPanel() {
-  const provider = useMemo(() => createAssistantProvider({ mode: 'mock' }), [])
+  const provider = useMemo(() => createAssistantProvider(), [])
   const [query, setQuery] = useState('')
   const [scope, setScope] = useState<ResearchRequest['scope']>('both')
   const [items, setItems] = useState<any[]>([])
@@ -57,4 +57,3 @@ export function ResearchPanel() {
 }
 
 export default ResearchPanel
-
