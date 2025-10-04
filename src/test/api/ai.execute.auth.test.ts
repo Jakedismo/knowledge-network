@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // Mock AI invoker to avoid network/SDK usage
 vi.mock('@/server/modules/ai', async (orig) => {
@@ -11,10 +11,17 @@ vi.mock('@/server/modules/ai', async (orig) => {
 
 describe('API: /api/ai/execute auth', () => {
   beforeEach(() => {
+    vi.resetModules() // Ensure env vars are read for each test
     process.env.OPENAI_API_KEY = 'test'
   })
 
-  it('returns 401 without auth headers', async () => {
+  afterEach(() => {
+    delete process.env.AI_REQUIRE_RBAC
+    delete process.env.OPENAI_API_KEY
+  })
+
+  it('returns 401 without auth headers when RBAC is enforced', async () => {
+    process.env.AI_REQUIRE_RBAC = '1'
     const { POST } = await import('@/app/api/ai/execute/route')
     const req = new Request('http://localhost/api/ai/execute', {
       method: 'POST',
@@ -23,6 +30,20 @@ describe('API: /api/ai/execute auth', () => {
     })
     const res = await POST(req as any)
     expect(res.status).toBe(401)
+  })
+
+  it('succeeds without auth headers in dev mode (RBAC disabled)', async () => {
+    // AI_REQUIRE_RBAC is not set, defaults to '0', so dev mode is active
+    const { POST } = await import('@/app/api/ai/execute/route')
+    const req = new Request('http://localhost/api/ai/execute', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ capability: 'chat', input: { question: 'hi' } }),
+    })
+    const res = await POST(req as any)
+    expect(res.status).toBe(200) // Dev mode synthesizes a user, leading to a 200 OK
+    const data = await res.json()
+    expect(data.type).toBe('chat')
   })
 
   it('succeeds with x-user-id header', async () => {
@@ -39,4 +60,3 @@ describe('API: /api/ai/execute auth', () => {
     expect(data.type).toBe('chat')
   })
 })
-
