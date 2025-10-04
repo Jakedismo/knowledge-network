@@ -2,11 +2,12 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Search, Bell, User, Settings, Menu } from "lucide-react"
+import { Search, Bell, User, Menu } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { ThemeToggle } from "./theme-toggle"
 
 interface HeaderProps {
   className?: string
@@ -90,14 +91,7 @@ export function Header({ className }: HeaderProps) {
             >
               <Bell className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              aria-label="Settings"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
+            <ThemeToggle />
             <Button
               variant="ghost"
               size="icon"

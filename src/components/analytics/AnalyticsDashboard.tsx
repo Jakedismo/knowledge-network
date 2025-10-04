@@ -5,7 +5,13 @@ import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Select } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { MetricCards } from './MetricCards';
 import { UserEngagementChart } from './UserEngagementChart';
 import { PerformanceMonitor } from './PerformanceMonitor';
@@ -13,9 +19,14 @@ import { RealtimeActivity } from './RealtimeActivity';
 import { ContentAnalytics } from './ContentAnalytics';
 import { SystemHealthMonitor } from './SystemHealthMonitor';
 import { ExportDialog } from './ExportDialog';
+import { SettingsDialog } from './SettingsDialog';
 import type { TimeRange } from '@/types/analytics';
 import { Calendar, Download, RefreshCw, Settings } from 'lucide-react';
 import { format } from 'date-fns';
+
+interface DashboardSettings {
+  autoRefreshInterval: number;
+}
 
 interface DashboardData {
   userEngagement: any;
@@ -29,6 +40,10 @@ export function AnalyticsDashboard() {
   const [timeRange, setTimeRange] = useState<string>('7d');
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [settings, setSettings] = useState<DashboardSettings>({
+    autoRefreshInterval: 30, // Default to 30 seconds
+  });
 
   const { data, isLoading, error, refetch } = useQuery<DashboardData>({
     queryKey: ['analytics', 'dashboard', timeRange],
@@ -41,7 +56,7 @@ export function AnalyticsDashboard() {
       }
       return response.json();
     },
-    refetchInterval: autoRefresh ? 30000 : false // Refresh every 30 seconds if enabled
+    refetchInterval: autoRefresh ? settings.autoRefreshInterval * 1000 : false
   });
 
   useEffect(() => {
@@ -110,15 +125,17 @@ export function AnalyticsDashboard() {
           {/* Time Range Selector */}
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
-            <Select
-              value={timeRange}
-              onValueChange={handleTimeRangeChange}
-            >
-              <option value="1h">Last Hour</option>
-              <option value="24h">Last 24 Hours</option>
-              <option value="7d">Last 7 Days</option>
-              <option value="30d">Last 30 Days</option>
-              <option value="3M">Last 3 Months</option>
+            <Select value={timeRange} onValueChange={handleTimeRangeChange}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select a time range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1h">Last Hour</SelectItem>
+                <SelectItem value="24h">Last 24 Hours</SelectItem>
+                <SelectItem value="7d">Last 7 Days</SelectItem>
+                <SelectItem value="30d">Last 30 Days</SelectItem>
+                <SelectItem value="3M">Last 3 Months</SelectItem>
+              </SelectContent>
             </Select>
           </div>
 
@@ -139,7 +156,7 @@ export function AnalyticsDashboard() {
           </Button>
 
           {/* Settings */}
-          <Button variant="outline" size="icon">
+          <Button variant="outline" size="icon" onClick={() => setShowSettingsDialog(true)}>
             <Settings className="h-4 w-4" />
           </Button>
         </div>
@@ -203,6 +220,16 @@ export function AnalyticsDashboard() {
           onClose={() => setShowExportDialog(false)}
           data={data}
           timeRange={timeRange}
+        />
+      )}
+
+      {/* Settings Dialog */}
+      {showSettingsDialog && (
+        <SettingsDialog
+          open={showSettingsDialog}
+          onClose={() => setShowSettingsDialog(false)}
+          settings={settings}
+          onSettingsChange={setSettings}
         />
       )}
     </div>
